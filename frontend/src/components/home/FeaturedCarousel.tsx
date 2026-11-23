@@ -68,16 +68,16 @@ export function FeaturedCarousel({ events, loading }: FeaturedCarouselProps) {
 
   if (loading) {
     return (
-      <section aria-label="Eventos em destaque" className="pt-5 sm:pt-7">
-        <div className="skeleton relative h-[380px] w-full overflow-hidden rounded-3xl border border-[var(--border-subtle)] sm:h-[440px] lg:h-[500px]" />
+      <section aria-label="Eventos em destaque" className="pt-3 md:pt-7">
+        <div className="skeleton relative h-[215px] w-full overflow-hidden rounded-2xl border border-[var(--border-subtle)] sm:h-[280px] md:h-[460px] md:rounded-3xl lg:h-[500px]" />
       </section>
     );
   }
 
   if (count === 0) {
     return (
-      <section aria-label="Boas-vindas" className="pt-5 sm:pt-7">
-        <div className="relative overflow-hidden rounded-3xl border border-[var(--border-subtle)] bg-[#0c0c12] px-6 py-14 text-white sm:px-12 sm:py-20">
+      <section aria-label="Boas-vindas" className="pt-3 md:pt-7">
+        <div className="relative overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[#0c0c12] px-5 py-10 text-white sm:px-8 sm:py-14 md:rounded-3xl md:px-12 md:py-20">
           <div
             className="pointer-events-none absolute inset-0"
             style={{
@@ -85,18 +85,18 @@ export function FeaturedCarousel({ events, loading }: FeaturedCarouselProps) {
                 'radial-gradient(circle at 18% 25%, rgba(255,51,102,0.28), transparent 45%), radial-gradient(circle at 82% 80%, rgba(99,102,241,0.24), transparent 50%)',
             }}
           />
-          <div className="relative z-10 max-w-2xl space-y-5">
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3.5 py-1 text-[11px] font-semibold tracking-wider text-white/90 uppercase backdrop-blur-md">
+          <div className="relative z-10 max-w-2xl space-y-4 md:space-y-5">
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[10px] font-semibold tracking-wider text-white/90 uppercase backdrop-blur-md md:px-3.5 md:text-[11px]">
               <Sparkles className="h-3.5 w-3.5 text-[#ff5c85]" />
               Em breve novos eventos
             </span>
-            <h1 className="font-display text-3xl leading-[1.08] font-bold tracking-tight sm:text-5xl">
+            <h1 className="font-display text-2xl leading-[1.08] font-bold tracking-tight sm:text-3xl md:text-5xl">
               As melhores noites e experiências, com sua mesa garantida.
             </h1>
-            <p className="max-w-xl text-sm leading-relaxed text-white/70 sm:text-base">
+            <p className="max-w-xl text-xs leading-relaxed text-white/70 sm:text-sm md:text-base">
               Assim que novos eventos forem publicados, os destaques da semana aparecerão aqui com seleção interativa de mesas em tempo real.
             </p>
-            <div className="flex flex-wrap gap-3 pt-1">
+            <div className="hidden flex-wrap gap-3 pt-1 md:flex">
               <a
                 href="#eventos"
                 className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-semibold text-[#08080a] transition-colors hover:bg-white/90"
@@ -121,7 +121,7 @@ export function FeaturedCarousel({ events, loading }: FeaturedCarouselProps) {
     <section
       aria-roledescription="carousel"
       aria-label="Próximos eventos em destaque"
-      className="pt-5 sm:pt-7"
+      className="pt-3 md:pt-7"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       onFocus={() => setPaused(true)}
@@ -129,7 +129,7 @@ export function FeaturedCarousel({ events, loading }: FeaturedCarouselProps) {
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
-      <div className="group relative h-[410px] w-full overflow-hidden rounded-3xl border border-[var(--border-subtle)] bg-[#0b0b10] shadow-[var(--shadow-elevated)] sm:h-[460px] lg:h-[520px]">
+      <div className="group relative h-[215px] w-full overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[#0b0b10] shadow-[var(--shadow-elevated)] sm:h-[290px] md:h-[460px] md:rounded-3xl lg:h-[520px]">
         {/* Slides background */}
         {events.map((item, idx) => {
           const imgUrl = resolveApiAssetUrl(item.bannerImageUrl || item.coverImageUrl);
@@ -159,7 +159,7 @@ export function FeaturedCarousel({ events, loading }: FeaturedCarouselProps) {
                 className="absolute inset-0"
                 style={{
                   background:
-                    'linear-gradient(180deg, rgba(8,8,10,0.22) 0%, rgba(8,8,10,0.45) 45%, rgba(8,8,10,0.92) 100%), linear-gradient(90deg, rgba(8,8,10,0.84) 0%, rgba(8,8,10,0.35) 55%, rgba(8,8,10,0.12) 100%)',
+                    'linear-gradient(180deg, rgba(8,8,10,0.16) 0%, rgba(8,8,10,0.34) 48%, rgba(8,8,10,0.88) 100%), linear-gradient(90deg, rgba(8,8,10,0.72) 0%, rgba(8,8,10,0.28) 55%, rgba(8,8,10,0.1) 100%)',
                 }}
               />
             </div>
@@ -174,22 +174,51 @@ export function FeaturedCarousel({ events, loading }: FeaturedCarouselProps) {
           />
         )}
 
+        {/* Mobile full-banner tap target */}
+        <Link
+          to={`/eventos/${current.slug}`}
+          aria-label={`Ver detalhes de ${current.title}`}
+          className="absolute inset-0 z-10 md:hidden"
+        />
+
+        {/* Mobile soft edge controls */}
+        {count > 1 && (
+          <>
+            <button
+              type="button"
+              onClick={goPrev}
+              aria-label="Evento anterior"
+              className="absolute top-1/2 left-2.5 z-20 flex h-8 w-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-white/20 bg-black/35 text-white/90 backdrop-blur-md transition-all active:scale-95 md:hidden"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={goNext}
+              aria-label="Próximo evento"
+              className="absolute top-1/2 right-2.5 z-20 flex h-8 w-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-white/20 bg-black/35 text-white/90 backdrop-blur-md transition-all active:scale-95 md:hidden"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </>
+        )}
+
         {/* Top bar inside hero */}
-        <div className="relative z-10 flex items-center justify-between px-5 pt-5 sm:px-9 sm:pt-8">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-black/45 px-3 py-1 text-[11px] font-semibold tracking-wider text-white uppercase backdrop-blur-md">
+        <div className="pointer-events-none relative z-10 flex items-center justify-between px-3.5 pt-3.5 md:pointer-events-auto md:px-9 md:pt-8">
+          <div className="flex flex-wrap items-center gap-1.5 md:gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-black/45 px-2.5 py-0.5 text-[10px] font-semibold tracking-wider text-white uppercase backdrop-blur-md md:px-3 md:py-1 md:text-[11px]">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#ff3366]" />
               Em destaque
             </span>
             {current.category && (
-              <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-medium text-white/90 backdrop-blur-md">
+              <span className="hidden rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-medium text-white/90 backdrop-blur-md md:inline-flex">
                 {current.category}
               </span>
             )}
           </div>
 
           {count > 1 && (
-            <div className="hidden items-center gap-2 sm:flex">
+            <div className="hidden items-center gap-2 md:flex">
               <button
                 type="button"
                 onClick={goPrev}
@@ -211,26 +240,34 @@ export function FeaturedCarousel({ events, loading }: FeaturedCarouselProps) {
         </div>
 
         {/* Bottom content */}
-        <div className="absolute inset-x-0 bottom-0 z-10 px-5 pb-6 sm:px-9 sm:pb-9">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-2xl space-y-3">
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs font-medium text-white/85 sm:text-sm">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 px-4 pb-4 md:pointer-events-auto md:px-9 md:pb-9">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-2xl space-y-1.5 md:space-y-3">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-medium text-white/85 md:gap-x-4 md:text-sm">
                 <span className="inline-flex items-center gap-1.5">
-                  <Calendar className="h-4 w-4 text-[#ff5c85]" />
+                  <Calendar className="h-3.5 w-3.5 text-[#ff5c85] md:h-4 md:w-4" />
                   {formatEventDateLine(current.startsAt, current.endsAt)}
                 </span>
-                <span className="inline-flex items-center gap-1.5">
+                <span className="hidden items-center gap-1.5 md:inline-flex">
                   <MapPin className="h-4 w-4 text-white/70" />
                   {current.venue}
                   {current.city ? ` · ${current.city}` : ''}
                 </span>
               </div>
 
-              <h1 className="font-display line-clamp-2 text-3xl leading-[1.06] font-bold tracking-tight text-white sm:text-5xl">
+              <h1 className="font-display line-clamp-2 text-xl leading-[1.08] font-bold tracking-tight text-white sm:text-2xl md:text-5xl">
                 {current.title}
               </h1>
 
-              <div className="flex flex-wrap items-center gap-3 pt-1">
+              <p className="flex items-center gap-1 truncate text-[11px] text-white/75 md:hidden">
+                <MapPin className="h-3 w-3 shrink-0 text-white/65" />
+                <span className="truncate">
+                  {current.venue}
+                  {current.city ? ` · ${current.city}` : ''}
+                </span>
+              </p>
+
+              <div className="hidden flex-wrap items-center gap-3 pt-1 md:flex">
                 <Link
                   to={`/eventos/${current.slug}`}
                   className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-semibold text-[#08080a] shadow-lg transition-all hover:bg-white/90 active:scale-[0.98]"
@@ -247,9 +284,9 @@ export function FeaturedCarousel({ events, loading }: FeaturedCarouselProps) {
               </div>
             </div>
 
-            {/* Slide indicators */}
+            {/* Desktop slide indicators */}
             {count > 1 && (
-              <div className="flex items-center justify-between gap-4 sm:justify-end">
+              <div className="hidden items-center justify-end gap-4 md:flex">
                 <div className="flex items-center gap-2" role="tablist" aria-label="Selecionar destaque">
                   {events.map((item, idx) => {
                     const isActive = idx === activeIndex;
@@ -279,6 +316,34 @@ export function FeaturedCarousel({ events, loading }: FeaturedCarouselProps) {
           </div>
         </div>
       </div>
+
+      {/* Mobile clean slide pagination dots below banner */}
+      {count > 1 && (
+        <div
+          className="mt-3 flex items-center justify-center gap-1.5 md:hidden"
+          role="tablist"
+          aria-label="Selecionar destaque"
+        >
+          {events.map((item, idx) => {
+            const isActive = idx === activeIndex;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                aria-label={`Ir para ${item.title}`}
+                onClick={() => setActiveIndex(idx)}
+                className={`h-1.5 cursor-pointer rounded-full transition-all duration-300 ${
+                  isActive
+                    ? 'w-6 bg-[var(--accent)]'
+                    : 'w-1.5 bg-[var(--border-strong)] hover:bg-[var(--text-muted)]'
+                }`}
+              />
+            );
+          })}
+        </div>
+      )}
     </section>
   );
 }

@@ -11,7 +11,7 @@
  * - Otherwise a simulated tokenizer is used, compatible with the backend
  *   `PAYMENT_PROVIDER=mock` gateway (local development only).
  */
-import type { PayerIdentification } from '@/types/api';
+import type { PayerIdentification, PaymentMethod } from '@/types/api';
 
 export const MERCADO_PAGO_PUBLIC_KEY =
   (import.meta.env.VITE_MERCADO_PAGO_PUBLIC_KEY as string | undefined)?.trim() || '';
@@ -334,7 +334,7 @@ function randomTokenSuffix(): string {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-export async function tokenizeCard(values: CardFormValues): Promise<TokenizedCard> {
+export async function tokenizeCard(values: CardFormValues, paymentMethod: Exclude<PaymentMethod, 'PIX'>): Promise<TokenizedCard> {
   const digits = onlyDigits(values.number);
   const brand = detectCardBrand(digits);
   const exp = parseExpiry(values.expiry);
@@ -357,9 +357,9 @@ export async function tokenizeCard(values: CardFormValues): Promise<TokenizedCar
   const mp = await loadMercadoPago();
   const bin = digits.slice(0, 8);
   const methods = await mp.getPaymentMethods({ bin }).catch(() => null);
-  const method = methods?.results?.find((m) => m.payment_type_id === 'credit_card')
-    ?? methods?.results?.[0];
-  if (!method) throw new Error('Não foi possível identificar a bandeira do cartão.');
+  const paymentType = paymentMethod === 'DEBIT_CARD' ? 'debit_card' : 'credit_card';
+  const method = methods?.results?.find((m) => m.payment_type_id === paymentType);
+  if (!method) throw new Error('O cartão não está disponível para a forma de pagamento selecionada.');
 
   let token: { id: string };
   try {

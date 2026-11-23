@@ -88,6 +88,7 @@ type Phase = 'form' | 'processing' | 'awaiting' | 'success' | 'expired' | 'refun
 const POLL_INTERVAL_MS: Record<PaymentMethod, number> = {
   PIX: 4000,
   CREDIT_CARD: 2500,
+  DEBIT_CARD: 2500,
 };
 
 const EMPTY_CARD: CardFormValues = {
@@ -377,7 +378,7 @@ export function CheckoutDrawer({
   // ---------------------------------------------------------------------------
   const cardBin = onlyDigits(card.number).slice(0, 8);
   useEffect(() => {
-    if (IS_SIMULATED_GATEWAY || cardBin.length < 6) {
+    if (method !== 'CREDIT_CARD' || IS_SIMULATED_GATEWAY || cardBin.length < 6) {
       setRemoteInstallments(null);
       return;
     }
@@ -388,7 +389,7 @@ export function CheckoutDrawer({
     return () => {
       active = false;
     };
-  }, [cardBin, reservation.amountMinor]);
+  }, [cardBin, method, reservation.amountMinor]);
 
   const installmentOptions = useMemo(
     () => remoteInstallments ?? simulatedInstallments(reservation.amountMinor, format),
@@ -500,6 +501,7 @@ export function CheckoutDrawer({
 
   async function handleCardSubmit(e: FormEvent) {
     e.preventDefault();
+    if (method === 'PIX') return;
     const errors = validateCardForm(card);
     setCardErrors(errors);
     setTouched({ number: true, holder: true, expiry: true, cvv: true, document: true, installments: true });
@@ -513,7 +515,7 @@ export function CheckoutDrawer({
     setPhase('processing');
     let tokenized;
     try {
-      tokenized = await tokenizeCard(card);
+      tokenized = await tokenizeCard(card, method);
     } catch (err) {
       if (!mountedRef.current) return;
       setPhase('form');
@@ -523,15 +525,14 @@ export function CheckoutDrawer({
 
     const identification = parseIdentification(card.document) ?? undefined;
     const input: CheckoutInput = {
-      method: 'CREDIT_CARD',
+      ...(method === 'DEBIT_CARD' ? { method, installments: 1 } : { method, installments: card.installments }),
       cardToken: tokenized.cardToken,
       paymentMethodId: tokenized.paymentMethodId,
-      installments: card.installments,
       ...(tokenized.issuerId ? { issuerId: tokenized.issuerId } : {}),
       ...(identification ? { identification } : {}),
     };
     setCardSummary(
-      `${tokenized.brand ? CARD_BRAND_LABEL[tokenized.brand] : 'Cartão'} •••• ${tokenized.lastFour} · ${card.installments}x`,
+      `${tokenized.brand ? CARD_BRAND_LABEL[tokenized.brand] : 'Cartão'} •••• ${tokenized.lastFour} · ${input.installments}x`,
     );
     // Card tokens are single-use, so each attempt is a new request.
     await submitCheckout(input, { ...input, cardToken: tokenized.cardToken });
@@ -911,7 +912,7 @@ export function CheckoutDrawer({
             </section>
           )}
 
-          {phase === 'awaiting' && method === 'CREDIT_CARD' && (
+          {phase === 'awaiting' && method !== 'PIX' && (
             <section className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)]/50 p-6 text-center">
               <Loader2 className="mx-auto h-10 w-10 animate-spin text-[var(--accent)]" />
               <h3 className="font-display mt-4 text-base font-bold text-[var(--text-primary)]">
@@ -953,12 +954,13 @@ export function CheckoutDrawer({
               <div
                 role="tablist"
                 aria-label="Forma de pagamento"
-                className="grid grid-cols-2 gap-2 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)]/60 p-1"
+                className="grid grid-cols-3 gap-2 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)]/60 p-1"
               >
                 {(
                   [
                     { id: 'PIX', label: 'Pix', icon: QrCode, hint: 'Aprovação na hora' },
                     { id: 'CREDIT_CARD', label: 'Cartão de crédito', icon: CreditCard, hint: 'Em até 12x' },
+                    { id: 'DEBIT_CARD', label: 'Cartão de débito', icon: CreditCard, hint: 'À vista' },
                   ] as const
                 ).map((opt) => {
                   const Icon = opt.icon;
@@ -1132,24 +1134,26 @@ export function CheckoutDrawer({
                     {fieldError('document')}
                   </div>
 
-                  <div>
-                    <label htmlFor="card-installments" className="mb-1.5 block text-xs font-semibold text-[var(--text-primary)]">
-                      Parcelas
-                    </label>
-                    <select
-                      id="card-installments"
-                      value={card.installments}
-                      onChange={(e) => updateCard('installments', Number(e.target.value))}
-                      className={`${fieldClass(Boolean(touched.installments && cardErrors.installments))} cursor-pointer`}
-                    >
-                      {installmentOptions.map((opt) => (
-                        <option key={opt.installments} value={opt.installments}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
-                    {fieldError('installments')}
-                  </div>
+                  {method === 'CREDIT_CARD' && (
+                    <div>
+                      <label htmlFor="card-installments" className="mb-1.5 block text-xs font-semibold text-[var(--text-primary)]">
+                        Parcelas
+                      </label>
+                      <select
+                        id="card-installments"
+                        value={card.installments}
+                        onChange={(e) => updateCard('installments', Number(e.target.value))}
+                        className={`${fieldClass(Boolean(touched.installments && cardErrors.installments))} cursor-pointer`}
+                      >
+                        {installmentOptions.map((opt) => (
+                          <option key={opt.installments} value={opt.installments}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                      {fieldError('installments')}
+                    </div>
+                  )}
 
                   <button
                     type="submit"

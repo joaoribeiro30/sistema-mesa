@@ -6,7 +6,10 @@ import { HttpError } from '../http.js';
 export type Identification = { type: 'CPF' | 'CNPJ'; number: string };
 export type CheckoutDetails = { identification?: Identification } & (
   | { method: 'PIX' }
-  | { method: 'CREDIT_CARD'; cardToken: string; paymentMethodId: string; installments: number; issuerId?: string }
+  | ({ cardToken: string; paymentMethodId: string; issuerId?: string } & (
+    | { method: 'CREDIT_CARD'; installments: number }
+    | { method: 'DEBIT_CARD'; installments: 1 }
+  ))
 );
 
 export type ChargeRequest = {

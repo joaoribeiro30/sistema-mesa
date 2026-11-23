@@ -108,6 +108,33 @@ test('gestão administrativa, disponibilidade ao vivo e portaria', async (t) => 
   let floorImageUrl = '';
   const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aNioAAAAASUVORK5CYII=', 'base64');
 
+  await t.test('cronograma considera datas locais, terças, sábados e o segundo dia útil', async () => {
+    const scheduled = await db.event.create({ data: {
+      slug: `${slug}-cronograma`, title: 'Cronograma', venue: 'Sala', currency: 'BRL',
+      createdAt: new Date('2027-03-07T01:00:00Z'), startsAt: new Date('2027-03-10T22:00:00Z'),
+      endsAt: new Date('2027-03-12T01:30:00Z'),
+    } });
+    eventIds.add(scheduled.id);
+    const path = `/admin/events/${scheduled.id}/dashboard`;
+    const page = await adminCall('GET', path);
+    assert.equal(page.statusCode, 200, page.body);
+    const { settlement } = page.json().dashboard;
+    assert.deepEqual(settlement.totals, {
+      paymentCount: 0, grossMinor: '0', financialFeeMinor: '0', convenienceFeeMinor: '0', processingFeeMinor: '0', netMinor: '0',
+    });
+    assert.deepEqual(settlement.byOperation, []);
+    assert.deepEqual(settlement.schedule, {
+      timeZone: 'America/Sao_Paulo', weeklyDates: ['2027-03-06', '2027-03-09', '2027-03-13'], finalDate: '2027-03-15',
+    });
+
+    await db.event.update({ where: { id: scheduled.id }, data: { endsAt: new Date('2027-03-13T01:30:00Z') } });
+    const rescheduled = await adminCall('GET', path);
+    assert.equal(rescheduled.statusCode, 200, rescheduled.body);
+    assert.deepEqual(rescheduled.json().dashboard.settlement.schedule, {
+      timeZone: 'America/Sao_Paulo', weeklyDates: ['2027-03-06', '2027-03-09', '2027-03-13'], finalDate: '2027-03-16',
+    });
+  });
+
   await t.test('CRUD de eventos, setores e mesas, planta, imagens e auditoria', async () => {
     assert.equal((await inject({ method: 'POST', url: '/admin/events', payload: eventInput })).statusCode, 401);
     assert.equal((await inject({ method: 'POST', url: '/admin/events', payload: eventInput,

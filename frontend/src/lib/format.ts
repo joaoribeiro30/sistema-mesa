@@ -49,6 +49,7 @@ export function formatEventDayBadge(isoUtc: string): {
   day: string;
   month: string;
   time: string;
+  compactTime: string;
 } {
   const date = new Date(isoUtc);
   const weekday = new Intl.DateTimeFormat('pt-BR', { weekday: 'short' })
@@ -64,8 +65,12 @@ export function formatEventDayBadge(isoUtc: string): {
     hour: '2-digit',
     minute: '2-digit',
   }).format(date);
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = date.getMinutes();
+  const compactTime =
+    minutes === 0 ? `${hours}H` : `${hours}H${String(minutes).padStart(2, '0')}`;
 
-  return { weekday, day, month, time };
+  return { weekday, day, month, time, compactTime };
 }
 
 export function formatEventDateLine(startsAt: string, endsAt?: string): string {

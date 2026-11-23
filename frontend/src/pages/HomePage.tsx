@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AlertCircle, CalendarX2, Loader2, RefreshCw } from 'lucide-react';
+import { AlertCircle, CalendarX2, Loader2, RefreshCw, X } from 'lucide-react';
 import { EventCard, EventCardSkeleton } from '@/components/home/EventCard';
 import {
   EventFiltersBar,
@@ -255,43 +255,87 @@ export function HomePage() {
     };
   }, [featuredEvents, events]);
 
+  const hasActiveFilters = Boolean(
+    filters.q ||
+      filters.fromDate ||
+      filters.toDate ||
+      filters.city ||
+      filters.venue ||
+      filters.category ||
+      filters.minPrice ||
+      filters.maxPrice ||
+      filters.availability,
+  );
+
   return (
     <div className="mx-auto max-w-7xl px-4 pb-12 sm:px-6 lg:px-8">
       {/* Interactive Featured Carousel */}
       <FeaturedCarousel events={featuredEvents} loading={featuredLoading} />
 
       {/* Active Events Catalog Section */}
-      <section id="eventos" className="mt-12 scroll-mt-24 space-y-6 sm:mt-16">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+      <section id="eventos" className="mt-6 scroll-mt-20 space-y-4 md:mt-16 md:scroll-mt-24 md:space-y-6">
+        <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
           <div>
-            <p className="text-xs font-semibold tracking-[0.18em] text-[var(--accent)] uppercase">
+            <p className="hidden text-xs font-semibold tracking-[0.18em] text-[var(--accent)] uppercase md:block">
               Programação ativa
             </p>
-            <h2 className="font-display mt-1 text-2xl font-bold tracking-tight text-[var(--text-primary)] sm:text-3xl">
-              Próximos eventos
+            <h2 className="font-display flex items-center gap-2.5 text-lg font-bold tracking-tight text-[var(--text-primary)] md:mt-1 md:text-3xl">
+              <span
+                aria-hidden="true"
+                className="inline-block h-5 w-1 rounded-full bg-[var(--accent)] md:hidden"
+              />
+              Próximos Eventos
             </h2>
           </div>
-          <p className="text-xs text-[var(--text-muted)]">
+          <p className="hidden text-xs text-[var(--text-muted)] md:block">
             Disponibilidade atualizada diretamente pelo catálogo em tempo real.
           </p>
         </div>
 
-        <EventFiltersBar
-          filters={filters}
-          availableCategories={availableCategories}
-          availableCities={availableCities}
-          availableVenues={availableVenues}
-          totalResults={visibleEvents.length}
-          loading={loading}
-          onChange={updateFilters}
-          onReset={resetFilters}
-        />
+        {/* Mobile active search indicator (shown only when search/filters are active) */}
+        {hasActiveFilters && (
+          <div className="flex items-center justify-between gap-2 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3.5 py-2 text-xs md:hidden">
+            <span className="truncate text-[var(--text-secondary)]">
+              {filters.q
+                ? `Busca: "${filters.q}"`
+                : filters.fromDate
+                  ? `Data: ${filters.fromDate}`
+                  : 'Filtros aplicados'}
+              {' · '}
+              <strong className="font-semibold text-[var(--text-primary)]">
+                {visibleEvents.length}
+              </strong>
+            </span>
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-full bg-[var(--bg-elevated)] px-2.5 py-1 text-[11px] font-semibold text-[var(--text-primary)]"
+            >
+              <X className="h-3 w-3" />
+              Limpar
+            </button>
+          </div>
+        )}
+
+        {/* Full Catalog Filters Bar (Desktop only) */}
+        <div className="hidden md:block">
+          <EventFiltersBar
+            filters={filters}
+            availableCategories={availableCategories}
+            availableCities={availableCities}
+            availableVenues={availableVenues}
+            totalResults={visibleEvents.length}
+            loading={loading}
+            onChange={updateFilters}
+            onReset={resetFilters}
+          />
+        </div>
 
         {/* Error state */}
         {error && (
           <div
             role="alert"
-            className="flex flex-col items-start justify-between gap-4 rounded-3xl border border-[var(--danger)]/35 bg-[var(--danger)]/10 p-5 sm:flex-row sm:items-center"
+            className="flex flex-col items-start justify-between gap-4 rounded-2xl border border-[var(--danger)]/35 bg-[var(--danger)]/10 p-4 sm:flex-row sm:items-center md:rounded-3xl md:p-5"
           >
             <div className="flex items-start gap-3">
               <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-[var(--danger)]" />
@@ -315,13 +359,13 @@ export function HomePage() {
 
         {/* Loading skeletons */}
         {loading ? (
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-5 lg:grid-cols-3 xl:grid-cols-4">
             {Array.from({ length: 8 }).map((_, i) => (
               <EventCardSkeleton key={i} />
             ))}
           </div>
         ) : visibleEvents.length === 0 && !error ? (
-          <div className="flex flex-col items-center justify-center rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-6 py-16 text-center">
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-6 py-12 text-center md:rounded-3xl md:py-16">
             <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-muted)]">
               <CalendarX2 className="h-6 w-6" />
             </div>
@@ -341,7 +385,7 @@ export function HomePage() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-5 lg:grid-cols-3 xl:grid-cols-4">
               {visibleEvents.map((ev) => (
                 <EventCard key={ev.id} event={ev} />
               ))}

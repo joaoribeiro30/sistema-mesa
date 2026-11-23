@@ -53,6 +53,7 @@ export function Header() {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const mobileSearchInputRef = useRef<HTMLInputElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
   // Sync local search inputs when URL changes on Home
@@ -83,6 +84,26 @@ export function Header() {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
+
+  // Auto-focus expandable mobile search input when opened
+  useEffect(() => {
+    if (mobileSearchOpen) {
+      mobileSearchInputRef.current?.focus();
+    }
+  }, [mobileSearchOpen]);
+
+  // Close mobile drawers on Escape
+  useEffect(() => {
+    if (!mobileMenuOpen && !mobileSearchOpen) return;
+    function onEscape(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setMobileMenuOpen(false);
+        setMobileSearchOpen(false);
+      }
+    }
+    window.addEventListener('keydown', onEscape);
+    return () => window.removeEventListener('keydown', onEscape);
+  }, [mobileMenuOpen, mobileSearchOpen]);
 
   // Click outside user menu
   useEffect(() => {
@@ -160,7 +181,7 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-[var(--border-subtle)] bg-[var(--bg-glass)] backdrop-blur-xl">
-      <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex h-[60px] max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 md:h-[72px] lg:px-8">
         {/* Brand */}
         <Link to="/" className="group shrink-0" aria-label="Página inicial MESA">
           <BrandLogo />
@@ -372,27 +393,33 @@ export function Header() {
           )}
         </div>
 
-        {/* Mobile Actions */}
-        <div className="flex items-center gap-1.5 md:hidden">
+        {/* Mobile Actions (< 768px): only compact Search + Hamburger Menu */}
+        <div className="flex items-center gap-2 md:hidden">
           <button
             type="button"
             onClick={() => {
               setMobileSearchOpen((prev) => !prev);
               setMobileMenuOpen(false);
             }}
-            aria-label="Abrir busca rápida"
-            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-secondary)]"
+            aria-label={mobileSearchOpen ? 'Fechar busca' : 'Abrir busca rápida'}
+            aria-expanded={mobileSearchOpen}
+            className={`relative flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border transition-colors ${
+              mobileSearchOpen || query || dateFilter
+                ? 'border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent)]'
+                : 'border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-primary)] hover:border-[var(--border-strong)]'
+            }`}
           >
-            <Search className="h-4 w-4" />
-          </button>
-
-          <button
-            type="button"
-            onClick={toggleTheme}
-            aria-label={isDark ? 'Ativar tema claro' : 'Ativar tema escuro'}
-            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-secondary)]"
-          >
-            {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            {mobileSearchOpen ? (
+              <X className="h-4 w-4" />
+            ) : (
+              <Search className="h-4 w-4" />
+            )}
+            {!mobileSearchOpen && (query || dateFilter) && (
+              <span
+                aria-hidden="true"
+                className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-[var(--accent)]"
+              />
+            )}
           </button>
 
           <button
@@ -402,53 +429,76 @@ export function Header() {
               setMobileSearchOpen(false);
             }}
             aria-label={mobileMenuOpen ? 'Fechar menu' : 'Abrir menu'}
-            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-primary)]"
+            aria-expanded={mobileMenuOpen}
+            className={`flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border transition-colors ${
+              mobileMenuOpen
+                ? 'border-[var(--border-strong)] bg-[var(--bg-elevated)] text-[var(--text-primary)]'
+                : 'border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-primary)] hover:border-[var(--border-strong)]'
+            }`}
           >
             {mobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
           </button>
         </div>
       </div>
 
-      {/* Mobile Search Drawer */}
+      {/* Mobile Expandable Search Bar */}
       {mobileSearchOpen && (
-        <div className="border-t border-[var(--border-subtle)] bg-[var(--bg-surface)] px-4 py-3 md:hidden">
-          <form onSubmit={handleSearchSubmit} className="space-y-2.5">
-            <div className="relative">
-              <Search className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" />
-              <input
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Nome do evento, cidade ou local..."
-                className="w-full rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] py-2.5 pr-4 pl-10 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--border-strong)] focus:outline-none"
-              />
+        <div className="animate-fade-in border-t border-[var(--border-subtle)] bg-[var(--bg-surface)]/95 px-4 py-3 backdrop-blur-xl md:hidden">
+          <form onSubmit={handleSearchSubmit} role="search" className="space-y-2.5">
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" />
+                <input
+                  ref={mobileSearchInputRef}
+                  type="text"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Buscar evento, local ou cidade..."
+                  className="w-full rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated)] py-2.5 pr-9 pl-10 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--border-strong)] focus:outline-none"
+                />
+                {(query || dateFilter) && (
+                  <button
+                    type="button"
+                    onClick={handleClearSearch}
+                    aria-label="Limpar busca"
+                    className="absolute top-1/2 right-2.5 -translate-y-1/2 cursor-pointer rounded-full p-1 text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+              <button
+                type="submit"
+                className="shrink-0 cursor-pointer rounded-full bg-[var(--cta-bg)] px-4 py-2.5 text-xs font-semibold text-[var(--cta-text)] transition-colors hover:bg-[var(--cta-hover)]"
+              >
+                Buscar
+              </button>
             </div>
-            <div className="flex gap-2">
+            <label className="flex items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-3.5 py-2 text-xs text-[var(--text-secondary)]">
+              <Calendar className="h-3.5 w-3.5 shrink-0 text-[var(--text-muted)]" />
+              <span className="shrink-0 text-[11px] font-medium text-[var(--text-muted)]">
+                Data:
+              </span>
               <input
                 type="date"
                 aria-label="Data do evento"
                 value={dateFilter}
                 onChange={(e) => setDateFilter(e.target.value)}
-                className="flex-1 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-3.5 py-2 text-xs text-[var(--text-primary)] focus:outline-none"
+                className="min-w-0 flex-1 bg-transparent text-xs text-[var(--text-primary)] focus:outline-none [color-scheme:dark] data-[light=true]:[color-scheme:light]"
+                data-light={!isDark}
               />
-              <button
-                type="submit"
-                className="cursor-pointer rounded-2xl bg-[var(--cta-bg)] px-5 py-2 text-xs font-semibold text-[var(--cta-text)]"
-              >
-                Buscar
-              </button>
-            </div>
+            </label>
           </form>
         </div>
       )}
 
       {/* Mobile Menu Drawer */}
       {mobileMenuOpen && (
-        <div className="border-t border-[var(--border-subtle)] bg-[var(--bg-surface)] px-4 py-4 md:hidden">
-          {isAuthenticated && user ? (
-            <div className="space-y-3">
+        <div className="animate-fade-in border-t border-[var(--border-subtle)] bg-[var(--bg-surface)] px-4 py-4 shadow-[var(--shadow-elevated)] md:hidden">
+          <div className="space-y-3">
+            {isAuthenticated && user && (
               <div className="flex items-center gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-3">
-                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--cta-bg)] text-xs font-bold text-[var(--cta-text)]">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--cta-bg)] text-xs font-bold text-[var(--cta-text)]">
                   {userInitials}
                 </span>
                 <div className="min-w-0 flex-1">
@@ -457,54 +507,97 @@ export function Header() {
                   </p>
                   <p className="truncate text-xs text-[var(--text-muted)]">{user.email}</p>
                 </div>
-                <span className="rounded-full bg-[var(--bg-surface)] px-2 py-0.5 text-[10px] font-semibold text-[var(--text-secondary)]">
+                <span
+                  className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${
+                    user.role === 'ADMIN'
+                      ? 'bg-[var(--accent-soft)] text-[var(--accent)]'
+                      : 'bg-[var(--bg-surface)] text-[var(--text-secondary)]'
+                  }`}
+                >
                   {user.role}
                 </span>
               </div>
+            )}
 
-              <div className="grid gap-1.5">
+            {/* Navigation Links */}
+            <nav aria-label="Menu mobile" className="grid gap-1">
+              <Link
+                to="/minhas-reservas"
+                className="flex items-center gap-2.5 rounded-2xl px-3.5 py-2.5 text-sm font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-elevated)]"
+              >
+                <Ticket className="h-4 w-4 text-[var(--text-secondary)]" />
+                Minhas Reservas
+              </Link>
+
+              {isAdmin && (
                 <Link
-                  to="/minhas-reservas"
-                  className="flex items-center gap-2.5 rounded-2xl px-3.5 py-2.5 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--bg-elevated)]"
+                  to="/admin"
+                  className="flex items-center gap-2.5 rounded-2xl px-3.5 py-2.5 text-sm font-medium text-[var(--accent)] transition-colors hover:bg-[var(--accent-soft)]"
                 >
-                  <Ticket className="h-4 w-4 text-[var(--text-secondary)]" />
-                  Minhas Reservas
+                  <Shield className="h-4 w-4" />
+                  Painel Admin
                 </Link>
-                {isAdmin && (
-                  <Link
-                    to="/admin"
-                    className="flex items-center gap-2.5 rounded-2xl px-3.5 py-2.5 text-sm font-medium text-[var(--accent)] hover:bg-[var(--accent-soft)]"
-                  >
-                    <Shield className="h-4 w-4" />
-                    Painel Admin
-                  </Link>
-                )}
+              )}
+
+              {isAuthenticated && user && !user.emailVerifiedAt && (
+                <Link
+                  to={`/verificar-email?email=${encodeURIComponent(user.email)}`}
+                  className="flex items-center gap-2.5 rounded-2xl px-3.5 py-2.5 text-sm font-medium text-[var(--warning)] transition-colors hover:bg-[var(--bg-elevated)]"
+                >
+                  <UserIcon className="h-4 w-4" />
+                  Verificar e-mail
+                </Link>
+              )}
+
+              {/* Theme Switcher inside drawer */}
+              <button
+                type="button"
+                onClick={toggleTheme}
+                className="flex w-full cursor-pointer items-center justify-between rounded-2xl px-3.5 py-2.5 text-left text-sm font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-elevated)]"
+              >
+                <span className="flex items-center gap-2.5">
+                  {isDark ? (
+                    <Sun className="h-4 w-4 text-[var(--text-secondary)]" />
+                  ) : (
+                    <Moon className="h-4 w-4 text-[var(--text-secondary)]" />
+                  )}
+                  Aparência
+                </span>
+                <span className="rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--text-secondary)]">
+                  {isDark ? 'Tema escuro' : 'Tema claro'}
+                </span>
+              </button>
+            </nav>
+
+            {/* Auth Actions */}
+            <div className="border-t border-[var(--border-subtle)] pt-3">
+              {isAuthenticated ? (
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="flex w-full cursor-pointer items-center gap-2.5 rounded-2xl px-3.5 py-2.5 text-left text-sm font-medium text-[var(--danger)] hover:bg-[var(--danger)]/10"
+                  className="flex w-full cursor-pointer items-center gap-2.5 rounded-2xl px-3.5 py-2.5 text-left text-sm font-medium text-[var(--danger)] transition-colors hover:bg-[var(--danger)]/10"
                 >
                   <LogOut className="h-4 w-4" />
                   Sair
                 </button>
-              </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-2.5">
+                  <Link
+                    to="/login"
+                    className="flex items-center justify-center rounded-full border border-[var(--border-strong)] bg-[var(--bg-elevated)] px-4 py-2.5 text-sm font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-hover)]"
+                  >
+                    Entrar
+                  </Link>
+                  <Link
+                    to="/cadastro"
+                    className="flex items-center justify-center rounded-full bg-[var(--cta-bg)] px-4 py-2.5 text-sm font-semibold text-[var(--cta-text)] transition-colors hover:bg-[var(--cta-hover)]"
+                  >
+                    Criar conta
+                  </Link>
+                </div>
+              )}
             </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-2.5">
-              <Link
-                to="/login"
-                className="flex items-center justify-center rounded-full border border-[var(--border-strong)] bg-[var(--bg-elevated)] px-4 py-2.5 text-sm font-medium text-[var(--text-primary)]"
-              >
-                Entrar
-              </Link>
-              <Link
-                to="/cadastro"
-                className="flex items-center justify-center rounded-full bg-[var(--cta-bg)] px-4 py-2.5 text-sm font-semibold text-[var(--cta-text)]"
-              >
-                Criar conta
-              </Link>
-            </div>
-          )}
+          </div>
         </div>
       )}
     </header>

@@ -28,7 +28,7 @@ export function mockGateway(secret: string): PaymentGateway {
       const data = raw as Record<string, unknown>;
       if (typeof data.eventId !== 'string' || !/^[a-z0-9_-]{1,120}$/i.test(data.eventId) ||
           typeof data.paymentId !== 'string' || !UUID.test(data.paymentId) ||
-          (data.method !== 'PIX' && data.method !== 'CREDIT_CARD') ||
+          (data.method !== 'PIX' && data.method !== 'CREDIT_CARD' && data.method !== 'DEBIT_CARD') ||
           typeof data.amountMinor !== 'number' || !Number.isInteger(data.amountMinor) ||
           data.amountMinor <= 0 || data.amountMinor > 2_147_483_647 ||
           typeof data.currency !== 'string' || !/^[A-Z]{3}$/.test(data.currency)) throw invalid();

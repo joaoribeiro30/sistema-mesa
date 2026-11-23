@@ -115,7 +115,7 @@ export interface ReservationItem {
   table?: ReservationTableInfo;
 }
 
-export type PaymentMethod = 'PIX' | 'CREDIT_CARD';
+export type PaymentMethod = 'PIX' | 'CREDIT_CARD' | 'DEBIT_CARD';
 
 export type PaymentStatus =
   | 'PENDING'
@@ -132,14 +132,12 @@ export interface PayerIdentification {
 
 export type CheckoutInput =
   | { method: 'PIX'; identification?: PayerIdentification }
-  | {
-      method: 'CREDIT_CARD';
+  | ({
       identification?: PayerIdentification;
       cardToken: string;
       paymentMethodId: string;
-      installments: number;
       issuerId?: string;
-    };
+    } & ({ method: 'CREDIT_CARD'; installments: number } | { method: 'DEBIT_CARD'; installments: 1 }));
 
 export interface CheckoutPayment {
   id: string;
@@ -321,6 +319,28 @@ export interface AdminDashboardTotals {
   confirmedRevenueMinor: string;
 }
 
+export type SettlementOperation = 'PIX' | 'DEBIT' | 'CREDIT' | 'ANTICIPATED_CREDIT';
+
+export interface SettlementAmounts<Minor> {
+  grossMinor: Minor;
+  financialFeeMinor: Minor;
+  convenienceFeeMinor: Minor;
+  processingFeeMinor: Minor;
+  netMinor: Minor;
+}
+
+export interface SettlementTotals extends SettlementAmounts<string> {
+  paymentCount: number;
+}
+
+export interface PaymentSettlement extends SettlementAmounts<number> {
+  paymentId: string;
+  operation: SettlementOperation;
+  financialFeeBps: number;
+  convenienceFeeBps: number;
+  processingFeeBps: number;
+}
+
 export interface AdminDashboardReservation {
   id: string;
   status: ReservationStatus;
@@ -330,6 +350,7 @@ export interface AdminDashboardReservation {
   expiresAt: string;
   confirmedAt: string | null;
   checkedInAt: string | null;
+  settlement: PaymentSettlement | null;
   table: {
     id: string;
     label: string;
@@ -346,6 +367,13 @@ export interface AdminEventDashboard {
   asOf: string;
   currency: string;
   totals: AdminDashboardTotals;
+  settlement: {
+    totals: SettlementTotals;
+    byOperation: Array<SettlementTotals & { operation: SettlementOperation }>;
+    unclassifiedGrossMinor: string;
+    unclassifiedPaymentCount: number;
+    schedule: { timeZone: string; weeklyDates: string[]; finalDate: string };
+  };
   pagination: {
     limit: number;
     offset: number;

@@ -18,15 +18,19 @@ const identification = Type.Optional(Type.Union([
   Type.Object({ type: Type.Literal('CPF'), number: Type.String({ pattern: '^[0-9]{11}$' }) }, closed),
   Type.Object({ type: Type.Literal('CNPJ'), number: Type.String({ pattern: '^[0-9]{14}$' }) }, closed),
 ]));
+const cardFields = {
+  identification,
+  cardToken: Type.String({ minLength: 16, maxLength: 256, pattern: '^(?![0-9]+$)[A-Za-z0-9_-]+$' }),
+  paymentMethodId: Type.String({ minLength: 1, maxLength: 40, pattern: '^[a-z0-9_-]+$' }),
+  issuerId: Type.Optional(Type.String({ pattern: '^[0-9]{1,30}$' })),
+};
 const checkoutBody = Type.Union([
   Type.Object({ method: Type.Literal('PIX'), identification }, closed),
   Type.Object({
-    method: Type.Literal('CREDIT_CARD'), identification,
-    cardToken: Type.String({ minLength: 16, maxLength: 256, pattern: '^(?![0-9]+$)[A-Za-z0-9_-]+$' }),
-    paymentMethodId: Type.String({ minLength: 1, maxLength: 40, pattern: '^[a-z0-9_-]+$' }),
+    ...cardFields, method: Type.Literal('CREDIT_CARD'),
     installments: Type.Integer({ minimum: 1, maximum: 24 }),
-    issuerId: Type.Optional(Type.String({ pattern: '^[0-9]{1,30}$' })),
   }, closed),
+  Type.Object({ ...cardFields, method: Type.Literal('DEBIT_CARD'), installments: Type.Literal(1) }, closed),
 ]);
 
 export function registerPaymentRoutes(app: FastifyInstance, db: Db, sessions: Sessions, config: Config) {
@@ -34,7 +38,7 @@ export function registerPaymentRoutes(app: FastifyInstance, db: Db, sessions: Se
   const gateway = payments.provider === 'mercado_pago'
     ? mercadoPagoGateway(payments.accessToken, payments.webhookSecret)
     : mockGateway(payments.webhookSecret);
-  const service = checkoutService(db, gateway, payments.ticketKey);
+  const service = checkoutService(db, gateway, payments.ticketKey, payments.creditAdvance);
   const api = app.withTypeProvider<TypeBoxTypeProvider>();
   const customer = sessions.requireRole('CUSTOMER');
 
@@ -44,7 +48,7 @@ export function registerPaymentRoutes(app: FastifyInstance, db: Db, sessions: Se
     config: { securityLimits: { ip: 20, user: 10 } },
   }, async (request, reply) => {
     const details: CheckoutDetails = request.body;
-    if (details.method === 'CREDIT_CARD' && details.paymentMethodId === 'pix') {
+    if (details.method !== 'PIX' && details.paymentMethodId === 'pix') {
       throw new HttpError(400, 'INVALID_CARD_DETAILS', 'Informe o token, a bandeira e o número de parcelas do cartão.');
     }
     const result = await service.checkout(request.account!, request.params.id, request.headers['idempotency-key'], details);

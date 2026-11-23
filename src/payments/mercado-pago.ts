@@ -23,7 +23,7 @@ function minorUnits(value: unknown): number {
 }
 
 export function mercadoPagoGateway(accessToken: string, secret: string, http = fetch): PaymentGateway {
-  let creditMethods: { ids: Set<string>; expiresAt: number } | undefined;
+  let cardMethods: { keys: Set<string>; expiresAt: number } | undefined;
 
   async function request(path: string, body?: unknown, paymentId?: string): Promise<unknown> {
     let response: Response;
@@ -44,20 +44,21 @@ export function mercadoPagoGateway(accessToken: string, secret: string, http = f
     return response.json().catch(() => { throw gatewayUnavailable(); });
   }
 
-  async function requireCreditMethod(id: string) {
-    if (!creditMethods || creditMethods.expiresAt <= Date.now()) {
+  async function requireCardMethod(id: string, type: 'credit_card' | 'debit_card') {
+    if (!cardMethods || cardMethods.expiresAt <= Date.now()) {
       const list = await request('payment_methods');
       if (!Array.isArray(list)) throw gatewayUnavailable();
-      const ids = new Set<string>();
+      const keys = new Set<string>();
       for (const item of list) {
         const method = record(item);
-        if (method?.payment_type_id === 'credit_card' && method.status === 'active' && typeof method.id === 'string') {
-          ids.add(method.id);
+        if ((method?.payment_type_id === 'credit_card' || method?.payment_type_id === 'debit_card') &&
+            method.status === 'active' && typeof method.id === 'string') {
+          keys.add(`${method.payment_type_id}:${method.id}`);
         }
       }
-      creditMethods = { ids, expiresAt: Date.now() + 5 * 60_000 };
+      cardMethods = { keys, expiresAt: Date.now() + 5 * 60_000 };
     }
-    if (!creditMethods.ids.has(id)) throw new ChargeRejected('Meio de pagamento de crédito indisponível.');
+    if (!cardMethods.keys.has(`${type}:${id}`)) throw new ChargeRejected('Meio de pagamento de cartão indisponível.');
   }
 
   return {
@@ -65,7 +66,9 @@ export function mercadoPagoGateway(accessToken: string, secret: string, http = f
     async createCharge({ paymentId, amountMinor, currency, expiresAt, email, details }) {
       if (currency !== 'BRL') throw new ChargeRejected('Este gateway aceita cobranças em BRL.');
       if (details.method === 'PIX' && !details.identification) throw new ChargeRejected('Informe o CPF ou CNPJ para pagar via Pix.');
-      if (details.method === 'CREDIT_CARD') await requireCreditMethod(details.paymentMethodId);
+      if (details.method !== 'PIX') {
+        await requireCardMethod(details.paymentMethodId, details.method === 'CREDIT_CARD' ? 'credit_card' : 'debit_card');
+      }
       if (expiresAt.getTime() <= Date.now()) throw new HttpError(409, 'RESERVATION_INACTIVE', 'O prazo de pagamento terminou.');
       const payload = {
         transaction_amount: amountMinor / 100,
@@ -85,7 +88,7 @@ export function mercadoPagoGateway(accessToken: string, secret: string, http = f
       if (!charge) throw gatewayUnavailable();
       const providerPaymentId = paymentNumber(charge.id);
       const declined = charge.status === 'rejected' || charge.status === 'cancelled';
-      if (details.method === 'CREDIT_CARD' || declined) return { providerPaymentId, declined };
+      if (details.method !== 'PIX' || declined) return { providerPaymentId, declined };
       const pixCode = record(record(charge.point_of_interaction)?.transaction_data)?.qr_code;
       if (typeof pixCode !== 'string' || !pixCode.trim() || pixCode.length > 2_048) throw gatewayUnavailable();
       return { providerPaymentId, pixCode };
@@ -113,7 +116,9 @@ export function mercadoPagoGateway(accessToken: string, secret: string, http = f
       if (!charge || paymentNumber(charge.id) !== id) throw gatewayUnavailable();
       if (typeof charge.external_reference !== 'string' || !UUID.test(charge.external_reference)) return null;
       if (charge.status !== 'approved' && charge.status !== 'rejected' && charge.status !== 'cancelled') return null;
-      const method = charge.payment_method_id === 'pix' ? 'PIX' : charge.payment_type_id === 'credit_card' ? 'CREDIT_CARD' : undefined;
+      const method = charge.payment_method_id === 'pix' ? 'PIX'
+        : charge.payment_type_id === 'credit_card' ? 'CREDIT_CARD'
+        : charge.payment_type_id === 'debit_card' ? 'DEBIT_CARD' : undefined;
       if (!method || typeof charge.currency_id !== 'string' || typeof charge.date_last_updated !== 'string') throw gatewayUnavailable();
       const event = {
         eventId: createHash('sha256').update(JSON.stringify([id, charge.status, charge.date_last_updated])).digest('hex'),

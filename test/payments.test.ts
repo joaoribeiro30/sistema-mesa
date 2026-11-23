@@ -9,7 +9,8 @@ import { createDb } from '../src/db.js';
 import { mercadoPagoGateway } from '../src/payments/mercado-pago.js';
 
 test('checkout, webhooks e comprovantes no PostgreSQL', async (t) => {
-  const config = { ...loadConfig(), captcha: undefined, trustedProxies: [] };
+  const loaded = loadConfig();
+  const config = { ...loaded, payments: { ...loaded.payments, creditAdvance: false }, captcha: undefined, trustedProxies: [] };
   assert.equal(config.payments.provider, 'mock');
   assert.equal(new URL(config.databaseUrl).hostname, '127.0.0.1');
   const db = createDb(config.databaseUrl);
@@ -18,7 +19,7 @@ test('checkout, webhooks e comprovantes no PostgreSQL', async (t) => {
   const fixture = `checkout-${testId}`;
   const remoteAddress = `2001:db8:${testId.slice(0, 4)}:${testId.slice(4, 8)}::1`;
   const inject = (input: InjectOptions) => app.inject({ remoteAddress, ...input });
-  const emails = [`${fixture}@example.test`, `${fixture}-outro@example.test`];
+  const emails = [`${fixture}@example.test`, `${fixture}-outro@example.test`, `${fixture}-admin@example.test`];
   t.after(async () => {
     try {
       await app.close();
@@ -42,8 +43,8 @@ test('checkout, webhooks e comprovantes no PostgreSQL', async (t) => {
 
   const password = 'Checkout de Teste 2026!';
   const passwordHash = await hashPassword(password);
-  async function login(email: string) {
-    const account = await db.user.create({ data: { email, name: 'Comprador', emailVerifiedAt: new Date(), passwordHash } });
+  async function login(email: string, role: 'CUSTOMER' | 'ADMIN' = 'CUSTOMER') {
+    const account = await db.user.create({ data: { email, name: role, role, emailVerifiedAt: new Date(), passwordHash } });
     const loginResponse = await inject({ method: 'POST', url: '/auth/login', payload: { email, password } });
     assert.equal(loginResponse.statusCode, 200);
     return { id: account.id, authorization: `Bearer ${loginResponse.json().accessToken}` };
@@ -63,11 +64,11 @@ test('checkout, webhooks e comprovantes no PostgreSQL', async (t) => {
     });
   }
 
-  async function newReservation(label: string) {
+  async function newReservation(label: string, priceMinor = 9950, owner = customer) {
     const table = await db.eventTable.create({ data: {
-      label, eventId: event.id, sectorId: sector.id, capacity: 4, priceMinor: 9950,
+      label, eventId: event.id, sectorId: sector.id, capacity: 4, priceMinor,
     } });
-    const response = await reserve(table.id);
+    const response = await reserve(table.id, owner);
     assert.equal(response.statusCode, 201, response.body);
     return { table, reservationId: response.json().reservation.id as string };
   }
@@ -215,6 +216,68 @@ test('checkout, webhooks e comprovantes no PostgreSQL', async (t) => {
     await publicStatus(table.id, 'RESERVED', false);
   });
 
+  await t.test('demonstrativo soma as quatro operações, preserva centavos e sinaliza pagamentos antigos', async () => {
+    const card = { method: 'DEBIT_CARD', cardToken: 'mock-debit-card-token', paymentMethodId: 'debvisa', installments: 1 };
+    const debit = await newReservation('DEBITO', 15, other);
+    assert.equal((await checkout(debit.reservationId, { ...card, installments: 2 }, randomUUID(), other)).statusCode, 400);
+    const debitCharge = await checkout(debit.reservationId, card, randomUUID(), other);
+    assert.equal(debitCharge.statusCode, 201, debitCharge.body);
+    const debitId = debitCharge.json().payment.id;
+    assert.equal((await webhook({ eventId: randomUUID(), paymentId: debitId, method: card.method, amountMinor: 15,
+      currency: 'BRL', outcome: 'APPROVED', approvedAt: new Date().toISOString() })).statusCode, 200);
+
+    const advance = await newReservation('ANTECIPACAO', 9950, other);
+    const advanceApp = await buildApp({ ...config, payments: { ...config.payments, creditAdvance: true } }, { logger: false });
+    const key = randomUUID();
+    const credit = { ...card, method: 'CREDIT_CARD', paymentMethodId: 'visa' };
+    let advanceId: string;
+    try {
+      const charge = await advanceApp.inject({ method: 'POST', url: `/reservations/${advance.reservationId}/checkout`, payload: credit,
+        headers: { authorization: other.authorization, 'idempotency-key': key } });
+      assert.equal(charge.statusCode, 201, charge.body);
+      advanceId = charge.json().payment.id;
+    } finally {
+      await advanceApp.close();
+    }
+    const replay = await checkout(advance.reservationId, credit, key, other);
+    assert.equal(replay.statusCode, 200, replay.body);
+    assert.equal(replay.json().payment.id, advanceId);
+    assert.equal((await webhook({ eventId: randomUUID(), paymentId: advanceId, method: credit.method, amountMinor: 9950,
+      currency: 'BRL', outcome: 'APPROVED', approvedAt: new Date().toISOString() })).statusCode, 200);
+
+    const legacy = await newReservation('HISTORICO', 9950, other);
+    const paidAt = new Date();
+    await db.$transaction([
+      db.reservation.update({ where: { id: legacy.reservationId }, data: { status: 'CONFIRMED', confirmedAt: paidAt } }),
+      db.payment.create({ data: { reservationId: legacy.reservationId, provider: 'legacy', providerPaymentId: randomUUID(),
+        idempotencyKey: randomUUID(), amountMinor: 9950, currency: 'BRL', status: 'SUCCEEDED', createdAt: paidAt, paidAt } }),
+    ]);
+
+    const admin = await login(emails[2]!, 'ADMIN');
+    const response = await inject({ url: `/admin/events/${event.id}/dashboard`, headers: { authorization: admin.authorization } });
+    assert.equal(response.statusCode, 200, response.body);
+    const { dashboard } = response.json();
+    assert.equal(dashboard.totals.confirmedRevenueMinor, '39815');
+    assert.deepEqual(dashboard.settlement.totals, {
+      grossMinor: '39815', financialFeeMinor: '1495', convenienceFeeMinor: '2986', processingFeeMinor: '914', netMinor: '24470', paymentCount: 5,
+    });
+    assert.equal(dashboard.settlement.unclassifiedGrossMinor, '9950');
+    assert.equal(dashboard.settlement.unclassifiedPaymentCount, 1);
+    assert.deepEqual(dashboard.settlement.byOperation.map(({ operation, netMinor }: { operation: string; netMinor: string }) => [operation, netMinor]), [
+      ['PIX', '8338'], ['DEBIT', '13'], ['CREDIT', '8159'], ['ANTICIPATED_CREDIT', '7960'],
+    ]);
+    const records = new Map<string, unknown>(dashboard.reservations.map(({ id, settlement }: { id: string; settlement: unknown }) => [id, settlement]));
+    assert.deepEqual(records.get(debit.reservationId), {
+      paymentId: debitId, operation: 'DEBIT', grossMinor: 15, financialFeeBps: 500, convenienceFeeBps: 1000, processingFeeBps: 120,
+      financialFeeMinor: 1, convenienceFeeMinor: 1, processingFeeMinor: 0, netMinor: 13,
+    });
+    assert.deepEqual(records.get(advance.reservationId), {
+      paymentId: advanceId, operation: 'ANTICIPATED_CREDIT', grossMinor: 9950, financialFeeBps: 500, convenienceFeeBps: 1000,
+      processingFeeBps: 499, financialFeeMinor: 498, convenienceFeeMinor: 995, processingFeeMinor: 497, netMinor: 7960,
+    });
+    assert.equal(records.get(legacy.reservationId), null);
+  });
+
   await t.test('demo online aceita Netlify, separa cotas por cliente e confirma o Pix do titular', async () => {
     const frontendOrigin = 'https://mesa-demo.netlify.app';
     const env = {
@@ -304,6 +367,7 @@ test('checkout, webhooks e comprovantes no PostgreSQL', async (t) => {
 test('adaptador Mercado Pago usa cobrança idempotente e valida a notificação com a API', async () => {
   const paymentId = randomUUID();
   const secret = 'fixture-mercado-pago';
+  let providerMethod = { payment_method_id: 'pix', payment_type_id: 'bank_transfer' };
   const calls: Array<{ url: string; init: RequestInit | undefined }> = [];
   const fakeFetch: typeof fetch = async (url, init) => {
     calls.push({ url: String(url), init });
@@ -313,7 +377,7 @@ test('adaptador Mercado Pago usa cobrança idempotente e valida a notificação 
     ]);
     if (init?.method === 'POST') return Response.json({ id: 123456, status: 'pending',
       point_of_interaction: { transaction_data: { qr_code: 'pix-provedor' } } });
-    return Response.json({ id: 123456, external_reference: paymentId, status: 'approved', payment_method_id: 'pix',
+    return Response.json({ id: 123456, external_reference: paymentId, status: 'approved', ...providerMethod,
       transaction_amount: '99.50', currency_id: 'BRL', date_approved: '2026-11-22T10:00:00Z', date_last_updated: '2026-11-22T10:00:01Z' });
   };
   const gateway = mercadoPagoGateway('test-access-token', secret, fakeFetch);
@@ -351,4 +415,10 @@ test('adaptador Mercado Pago usa cobrança idempotente e valida a notificação 
   assert.equal(calls[3]?.url, 'https://api.mercadopago.com/v1/payments/123456');
   assert.equal(verified?.outcome, 'APPROVED');
   assert.equal(verified?.amountMinor, 9950);
+  await gateway.createCharge({ ...request, details: {
+    method: 'DEBIT_CARD', cardToken: 'fake-provider-debit-token', paymentMethodId: 'debvisa', installments: 1,
+  } });
+  assert.equal(JSON.parse(String(calls[4]?.init?.body)).payment_method_id, 'debvisa');
+  providerMethod = { payment_method_id: 'debvisa', payment_type_id: 'debit_card' };
+  assert.equal((await gateway.readWebhook(notification))?.method, 'DEBIT_CARD');
 });

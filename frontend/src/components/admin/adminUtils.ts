@@ -1,6 +1,11 @@
 import { ApiError, getFriendlyErrorMessage } from '@/lib/api';
 import { formatLocalIsoOffset } from '@/lib/format';
-import type { DisplayMode, EventStatus, ReservationStatus } from '@/types/api';
+import type {
+  DisplayMode,
+  EventStatus,
+  ReservationStatus,
+  SettlementOperation,
+} from '@/types/api';
 
 export const MAX_IMAGE_BYTES = 2 * 1024 * 1024; // 2 MiB
 export const ACCEPTED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp'] as const;
@@ -248,6 +253,107 @@ export function isValidHttpsImageUrl(url: string): boolean {
     );
   } catch {
     return false;
+  }
+}
+
+export const SETTLEMENT_OPERATION_ORDER: readonly SettlementOperation[] = [
+  'PIX',
+  'DEBIT',
+  'CREDIT',
+  'ANTICIPATED_CREDIT',
+] as const;
+
+export const SETTLEMENT_OPERATION_META: Record<
+  SettlementOperation,
+  {
+    shortLabel: string;
+    label: string;
+    rateLabel: string;
+    pillClass: string;
+  }
+> = {
+  PIX: {
+    shortLabel: 'PIX',
+    label: 'Pix',
+    rateLabel: '1,20%',
+    pillClass:
+      'border-emerald-500/35 bg-emerald-500/12 text-emerald-600 dark:text-emerald-400',
+  },
+  DEBIT: {
+    shortLabel: 'DÉB',
+    label: 'Débito',
+    rateLabel: '1,20%',
+    pillClass:
+      'border-sky-500/35 bg-sky-500/12 text-sky-600 dark:text-sky-400',
+  },
+  CREDIT: {
+    shortLabel: 'CRÉD',
+    label: 'Crédito sem antecipação',
+    rateLabel: '2,99%',
+    pillClass:
+      'border-violet-500/35 bg-violet-500/12 text-violet-600 dark:text-violet-300',
+  },
+  ANTICIPATED_CREDIT: {
+    shortLabel: 'ANTEC',
+    label: 'Crédito com antecipação',
+    rateLabel: '4,99%',
+    pillClass:
+      'border-amber-500/35 bg-amber-500/12 text-amber-600 dark:text-amber-400',
+  },
+};
+
+/** Sums decimal integer strings in minor currency units using BigInt precision. */
+export function sumMinorStrings(...values: string[]): string {
+  let total = 0n;
+  for (const raw of values) {
+    const cleaned = raw.trim();
+    if (/^-?\d+$/.test(cleaned)) {
+      total += BigInt(cleaned);
+    }
+  }
+  return total.toString();
+}
+
+/** Formats a civil YYYY-MM-DD date in pt-BR without timezone shift. */
+export function formatCivilDatePtBr(yyyyMmDd: string): {
+  weekday: string;
+  shortDate: string;
+  fullDate: string;
+} {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(yyyyMmDd.trim());
+  if (!match) {
+    return { weekday: '', shortDate: yyyyMmDd, fullDate: yyyyMmDd };
+  }
+  const [, y, m, d] = match;
+  const noonUtc = new Date(Date.UTC(Number(y), Number(m) - 1, Number(d), 12, 0, 0));
+  const rawWeekday = new Intl.DateTimeFormat('pt-BR', {
+    weekday: 'short',
+    timeZone: 'UTC',
+  })
+    .format(noonUtc)
+    .replace('.', '');
+  const weekday = rawWeekday.charAt(0).toUpperCase() + rawWeekday.slice(1);
+  const shortDate = `${d}/${m}`;
+  const fullDate = `${d}/${m}/${y}`;
+  return { weekday, shortDate, fullDate };
+}
+
+/** Returns the civil date YYYY-MM-DD of an ISO timestamp in a given IANA timeZone. */
+export function getCivilDateKeyInTimeZone(
+  isoUtc: string,
+  timeZone = 'America/Sao_Paulo',
+): string {
+  const date = new Date(isoUtc);
+  if (!Number.isFinite(date.getTime())) return '';
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(date);
+  } catch {
+    return date.toISOString().slice(0, 10);
   }
 }
 

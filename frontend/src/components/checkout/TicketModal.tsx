@@ -19,7 +19,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { ApiError, getFriendlyErrorMessage, reservationsApi } from '@/lib/api';
 import { formatEventDateLine, formatMinorCurrency } from '@/lib/format';
-import type { ReservationReceipt } from '@/types/api';
+import type { PaymentMethod, ReservationReceipt } from '@/types/api';
 
 interface TicketModalProps {
   reservationId: string;
@@ -27,6 +27,11 @@ interface TicketModalProps {
 }
 
 const RETRY_DELAYS_MS = [1200, 2500, 4000];
+const paymentMethodLabels: Record<PaymentMethod, string> = {
+  PIX: 'Pix',
+  CREDIT_CARD: 'Cartão de crédito',
+  DEBIT_CARD: 'Cartão de débito',
+};
 
 function formatDateTime(iso: string | null | undefined): string | null {
   if (!iso) return null;
@@ -256,7 +261,7 @@ export function TicketModal({ reservationId, onClose }: TicketModalProps) {
                   {formatMinorCurrency(receipt.payment.amountMinor, receipt.payment.currency)}
                 </dd>
                 <dd className="text-[11px] text-[var(--text-secondary)]">
-                  {receipt.payment.method === 'PIX' ? 'Pix' : receipt.payment.method === 'CREDIT_CARD' ? 'Cartão de crédito' : '—'}
+                  {receipt.payment.method ? paymentMethodLabels[receipt.payment.method] : '—'}
                 </dd>
               </div>
               <div className="col-span-2">

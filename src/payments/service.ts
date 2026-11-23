@@ -4,6 +4,7 @@ import type { Prisma } from '../generated/prisma/client.js';
 import type { ReservationStatus } from '../generated/prisma/enums.js';
 import { HttpError } from '../http.js';
 import { ChargeRejected, gatewayUnavailable, type CheckoutDetails, type PaymentGateway, type PaymentNotification } from './gateway.js';
+import { calculateSettlement } from './settlement.js';
 import { createTicket, qrCode } from './ticket.js';
 
 type LockedReservation = {
@@ -23,13 +24,13 @@ function inactiveReservation() {
   return new HttpError(409, 'RESERVATION_INACTIVE', 'O prazo de pagamento da reserva terminou ou a reserva já foi encerrada.');
 }
 
-export function checkoutService(db: Db, gateway: PaymentGateway, ticketKey: Buffer) {
+export function checkoutService(db: Db, gateway: PaymentGateway, ticketKey: Buffer, creditAdvance: boolean) {
   const requestKey = Buffer.from(hkdfSync('sha256', ticketKey, '', 'sistemamesa.checkout.request.v1', 32));
 
   async function checkout(user: { id: string; email: string }, reservationId: string, idempotencyKey: string, details: CheckoutDetails) {
     const requestHash = createHmac('sha256', requestKey).update(JSON.stringify([
       details.method, details.identification?.type, details.identification?.number,
-      ...(details.method === 'CREDIT_CARD' ? [details.cardToken, details.paymentMethodId, details.installments, details.issuerId] : []),
+      ...(details.method !== 'PIX' ? [details.cardToken, details.paymentMethodId, details.installments, details.issuerId] : []),
     ])).digest('hex');
 
     const attempt = await db.$transaction(async (tx) => {
@@ -58,6 +59,9 @@ export function checkoutService(db: Db, gateway: PaymentGateway, ticketKey: Buff
         throw new HttpError(409, 'PAYMENT_IN_PROGRESS', 'Já existe uma cobrança pendente para a reserva.');
       }
       const payment = await tx.payment.findUniqueOrThrow({ where: { provider_idempotencyKey: { provider: gateway.name, idempotencyKey } } });
+      await tx.paymentSettlement.create({ data: {
+        paymentId: payment.id, ...calculateSettlement(payment.amountMinor, details.method, creditAdvance),
+      } });
       return { payment, expiresAt: reservation.expiresAt, created: true };
     });
 

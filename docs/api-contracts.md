@@ -158,6 +158,21 @@ Conflitos de slug, nome de setor ou número de mesa retornam `409 ADMIN_RESOURCE
 
 `GET /admin/events/:eventId/dashboard?limit=20&offset=0` retorna um retrato consistente do estoque e do faturamento. `reserved` conta bloqueios ativos em `PENDING_PAYMENT`. `sold` conta mesas com reserva confirmada. `disabled` conta mesas desabilitadas sem bloqueio ou venda. A soma de pagamentos `SUCCEEDED` de reservas confirmadas vem como string decimal para preservar a precisão. A lista inclui o histórico paginado e identifica cada comprador. Reconsulte o dashboard ao receber mudanças SSE e após um check-in para atualizar os dados da portaria.
 
+`dashboard.settlement.totals` soma as vendas confirmadas do evento inteiro. `byOperation` discrimina as vendas classificadas pelo meio de pagamento. Os totais monetários são strings decimais na unidade mínima de `currency` (centavos para `BRL`) e `paymentCount` é inteiro. Em cada reserva paginada, `settlement` identifica o pagamento confirmado e mostra os valores inteiros na mesma unidade e as taxas em pontos-base (`100` pontos-base correspondem a `1%`). O campo é `null` quando a reserva ainda não tem uma venda classificada elegível.
+
+| `operation` | Operação | Taxa de processamento sobre o bruto |
+| --- | --- | --- |
+| `PIX` | Pix | 1,20% |
+| `DEBIT` | Débito | 1,20% |
+| `CREDIT` | Crédito sem antecipação | 2,99% |
+| `ANTICIPATED_CREDIT` | Crédito com antecipação | 4,99% |
+
+O serviço da plataforma corresponde a 15% do bruto. O cálculo arredonda os 15% e os 5% da instituição financeira para o centavo mais próximo, com meio centavo arredondado para cima. `convenienceFeeMinor` recebe a diferença para os 15%, atribuindo à comodidade o ajuste de centavos quando necessário. `processingFeeMinor` é calculado separadamente sobre o bruto com o mesmo arredondamento. `netMinor` é o bruto menos as três taxas. O checkout registra os valores e percentuais por pagamento, antes de solicitar a cobrança ao provedor.
+
+Pagamentos confirmados antigos sem meio registrado compõem `totals.grossMinor`, `totals.paymentCount`, `unclassifiedGrossMinor` e `unclassifiedPaymentCount`. As taxas e o líquido dos totais se referem às vendas classificadas. A migração classifica Pix e crédito já identificados, usando a tarifa de crédito sem antecipação para os cartões históricos.
+
+`schedule.weeklyDates` contém as terças-feiras e os sábados a partir da data de criação do evento, inclusive, até a véspera do fechamento final. `schedule.finalDate` é o segundo dia útil após a data de `endsAt`, pulando sábados e domingos. Se o fechamento cair em uma terça-feira, essa data aparece como fechamento final. As datas são civis no fuso `America/Sao_Paulo`, no formato `AAAA-MM-DD`.
+
 ```json
 {
   "dashboard": {
@@ -165,6 +180,21 @@ Conflitos de slug, nome de setor ou número de mesa retornam `409 ADMIN_RESOURCE
     "asOf": "2027-03-10T23:30:00.000Z",
     "currency": "BRL",
     "totals": { "available": 8, "reserved": 0, "sold": 1, "disabled": 0, "checkedIn": 0, "confirmedRevenueMinor": "9900" },
+    "settlement": {
+      "totals": {
+        "grossMinor": "9900", "financialFeeMinor": "495", "convenienceFeeMinor": "990",
+        "processingFeeMinor": "119", "netMinor": "8296", "paymentCount": 1
+      },
+      "byOperation": [{
+        "operation": "PIX", "grossMinor": "9900", "financialFeeMinor": "495", "convenienceFeeMinor": "990",
+        "processingFeeMinor": "119", "netMinor": "8296", "paymentCount": 1
+      }],
+      "unclassifiedGrossMinor": "0",
+      "unclassifiedPaymentCount": 0,
+      "schedule": {
+        "timeZone": "America/Sao_Paulo", "weeklyDates": ["2027-03-09", "2027-03-13"], "finalDate": "2027-03-15"
+      }
+    },
     "pagination": { "limit": 20, "offset": 0, "total": 1 },
     "reservations": [{
       "id": "2498f052-4af1-4803-be22-14548849b179",
@@ -175,6 +205,11 @@ Conflitos de slug, nome de setor ou número de mesa retornam `409 ADMIN_RESOURCE
       "expiresAt": "2027-03-10T23:15:00.000Z",
       "confirmedAt": "2027-03-10T23:06:00.000Z",
       "checkedInAt": null,
+      "settlement": {
+        "paymentId": "ce670fdd-7806-495a-8d75-f0d890bfab5b", "operation": "PIX", "grossMinor": 9900,
+        "financialFeeBps": 500, "convenienceFeeBps": 1000, "processingFeeBps": 120,
+        "financialFeeMinor": 495, "convenienceFeeMinor": 990, "processingFeeMinor": 119, "netMinor": 8296
+      },
       "table": { "id": "5a4a0bc9-7990-47ea-b61c-4ed2b9d5e68b", "label": "P1" },
       "buyer": { "id": "dbc234d9-3330-40cb-b310-326f129a5e43", "name": "Ana", "email": "ana@example.com" }
     }]
@@ -225,7 +260,9 @@ O sucesso retorna `200`. Um ingresso inválido retorna `400 INVALID_TICKET`. Ing
 
 `user` contém `id`, `email`, `name`, `role` e `emailVerifiedAt`. Quando habilitado, o CAPTCHA é enviado como `captchaToken` nos fluxos descritos no [README](../README.md#segurança-da-api). Somente clientes com e-mail verificado podem reservar.
 
-O checkout Pix recebe `{ "method": "PIX" }`. O Mercado Pago também requer `identification: { "type": "CPF", "number": "..." }` ou CNPJ conforme o documento. Cartão exige `method: "CREDIT_CARD"`, `cardToken`, `paymentMethodId` e `installments`. `issuerId` e `identification` acompanham a solicitação quando necessários. O servidor usa o preço gravado na reserva e o webhook é chamado pelo gateway.
+O checkout Pix recebe `{ "method": "PIX" }`. O Mercado Pago também requer `identification: { "type": "CPF", "number": "..." }` ou CNPJ conforme o documento. Cartão exige `method: "CREDIT_CARD"` ou `method: "DEBIT_CARD"`, `cardToken`, `paymentMethodId` e `installments`. No débito, `installments` deve ser `1`. `issuerId` e `identification` acompanham a solicitação quando necessários. O servidor usa o preço gravado na reserva e o webhook é chamado pelo gateway.
+
+Configure `PAYMENT_CREDIT_ADVANCE=true` quando a operação do estabelecimento tiver antecipação de crédito contratada. A opção classifica novas cobranças de crédito como `ANTICIPATED_CREDIT` para fins de prestação de contas. A antecipação financeira é contratada no provedor. O padrão é `false`, que usa `CREDIT` tanto para crédito à vista quanto para o parcelamento já aceito pelo checkout. A classificação gravada permanece vinculada à cobrança em tentativas idempotentes.
 
 O bloqueio dura 10 minutos. Nas rotas do titular, `reservation` inclui `id`, `tableId`, `eventId`, `guestCount`, `capacity`, `amountMinor`, `currency`, `status` e `expiresAt`. Em `GET /reservations/me`, cada item também traz `event` (`slug`, `title`, `venue`, `city`, `startsAt`) e `table` (`label`, `sector.name`). A consulta de pagamento inclui `id`, `method`, `status`, `amountMinor`, `currency` e `paidAt`. Os estados da reserva são `PENDING_PAYMENT`, `CONFIRMED`, `EXPIRED` e `CANCELLED`.
 
