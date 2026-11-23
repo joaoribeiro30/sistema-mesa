@@ -23,6 +23,7 @@ import {
   TABLE_STATUS_META,
 } from '@/components/event/tableStatus';
 import { formatMinorCurrency, resolveApiAssetUrl } from '@/lib/format';
+import { compareTablesByLabel } from '@/lib/tableOrder';
 import type { EventSector, EventTable } from '@/types/api';
 
 interface PositionedTable {
@@ -100,9 +101,12 @@ export function InteractiveFloorMap({
       }
     }
 
+    const compareEntries = (left: PositionedTable, right: PositionedTable) =>
+      compareTablesByLabel(left.table, right.table);
+
     return {
-      positionedTables: positioned,
-      unpositionedTables: unpositioned,
+      positionedTables: positioned.sort(compareEntries),
+      unpositionedTables: unpositioned.sort(compareEntries),
       tableLookup: lookup,
     };
   }, [sectors]);

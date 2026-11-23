@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import type { Sessions } from '../auth/session.js';
 import type { Db } from '../db.js';
 import { closedObject, eventIdParams, eventNotFound, normalizeText, plainText, uuid } from '../events/contracts.js';
+import { compareTablesByLabel } from '../events/tableOrder.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { HttpError } from '../http.js';
 import { imageUrl, removeUploads, verifyImageUrl } from './images.js';
@@ -77,9 +78,10 @@ export function registerAdminInventory(app: FastifyInstance, db: Db, sessions: S
   api.get(sectorPath, { onRequest: admin, schema: { params: sectorParams } }, async (request) => {
     const { eventId, sectorId } = request.params;
     const sector = await db.sector.findUnique({
-      where: { id_eventId: { id: sectorId, eventId } }, include: { tables: { orderBy: { label: 'asc' } } },
+      where: { id_eventId: { id: sectorId, eventId } }, include: { tables: true },
     });
     if (!sector) throw sectorNotFound();
+    sector.tables.sort(compareTablesByLabel);
     return { sector };
   });
 

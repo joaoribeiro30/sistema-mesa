@@ -6,6 +6,7 @@ import { HttpError } from '../http.js';
 import { pagination } from '../security/pagination.js';
 import { activeReservation, inventorySelection, publicEvent, tableAvailability } from './availability.js';
 import { closedObject, dateTime, eventNotFound, normalizeText, parseDate, plainText, slug } from './contracts.js';
+import { compareTablesByLabel } from './tableOrder.js';
 
 const eventSummary = {
   id: true, slug: true, title: true, venue: true, city: true, category: true, currency: true,
@@ -75,7 +76,7 @@ export function registerEventRoutes(app: FastifyInstance, db: Db) {
           orderBy: { name: 'asc' },
           select: {
             id: true, name: true, description: true, basePriceMinor: true,
-            tables: { where: table, orderBy: { label: 'asc' }, select: {
+            tables: { where: table, select: {
               id: true, label: true, capacity: true, priceMinor: true, x: true, y: true,
               reservations: inventorySelection(now),
             } },
@@ -88,7 +89,9 @@ export function registerEventRoutes(app: FastifyInstance, db: Db) {
       ...event,
       sectors: event.sectors.map((sector) => ({
         ...sector,
-        tables: sector.tables.map(({ reservations, ...table }) => ({ ...table, ...tableAvailability(reservations) })),
+        tables: sector.tables
+          .map(({ reservations, ...table }) => ({ ...table, ...tableAvailability(reservations) }))
+          .sort(compareTablesByLabel),
       })),
     } };
   });

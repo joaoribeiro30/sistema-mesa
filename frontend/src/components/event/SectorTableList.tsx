@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Check, Clock, Lock, Plus, Users } from 'lucide-react';
 import {
   formatExpiryTime,
@@ -6,6 +7,7 @@ import {
   TABLE_STATUS_META,
 } from '@/components/event/tableStatus';
 import { formatMinorCurrency } from '@/lib/format';
+import { compareTablesByLabel } from '@/lib/tableOrder';
 import type { EventSector, EventTable } from '@/types/api';
 
 interface SectorTableListProps {
@@ -25,7 +27,15 @@ export function SectorTableList({
   onlyAvailable,
   onToggleTable,
 }: SectorTableListProps) {
-  const visibleSectors = sectors.filter(
+  const orderedSectors = useMemo(
+    () => sectors.map((sector) => ({
+      ...sector,
+      tables: [...sector.tables].sort(compareTablesByLabel),
+    })),
+    [sectors],
+  );
+
+  const visibleSectors = orderedSectors.filter(
     (s) => !activeSectorId || s.id === activeSectorId,
   );
 

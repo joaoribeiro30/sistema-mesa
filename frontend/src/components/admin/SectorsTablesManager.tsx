@@ -20,6 +20,7 @@ import {
 } from '@/components/admin/adminUtils';
 import { adminApi } from '@/lib/api';
 import { formatMinorCurrency, parseMajorPriceToMinor } from '@/lib/format';
+import { compareTablesByLabel } from '@/lib/tableOrder';
 import type {
   AdminEventDetail,
   AdminSectorWithTables,
@@ -53,6 +54,14 @@ export function SectorsTablesManager({
     id: string;
     sectorId: string;
   } | null>(null);
+
+  const orderedSectors = useMemo(
+    () => event.sectors.map((sector) => ({
+      ...sector,
+      tables: [...sector.tables].sort(compareTablesByLabel),
+    })),
+    [event.sectors],
+  );
 
   const summary = useMemo(() => {
     let totalTables = 0;
@@ -180,7 +189,7 @@ export function SectorsTablesManager({
         </div>
       ) : (
         <div className="space-y-4">
-          {event.sectors.map((sector, sectorIdx) => {
+          {orderedSectors.map((sector, sectorIdx) => {
             const color = getSectorColor(sectorIdx);
             const isDeletingSector =
               confirmDelete?.type === 'sector' && confirmDelete.id === sector.id;

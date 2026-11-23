@@ -37,6 +37,7 @@ import { useAuthenticatedImageUrl } from '@/hooks/useAuthenticatedImageUrl';
 import { adminApi } from '@/lib/api';
 import { EVENT_IMAGE_ACCEPT, IMAGE_SIZE_LABEL, validateImageFile } from '@/lib/eventImages';
 import { formatMinorCurrency, parseMajorPriceToMinor } from '@/lib/format';
+import { compareTablesByLabel } from '@/lib/tableOrder';
 import type {
   AdminEventDetail,
   AdminSectorWithTables,
@@ -166,6 +167,7 @@ export function VisualMapEditor({
         map.set(table.id, entry);
       }
     });
+    list.sort((left, right) => compareTablesByLabel(left.table, right.table));
     return { allTables: list, tableMap: map };
   }, [event.sectors]);
 
@@ -224,6 +226,10 @@ export function VisualMapEditor({
     }
     return { positionedTables: positioned, unpositionedTables: unpositioned };
   }, [allTables, getEffectiveCoord]);
+
+  const visibleUnpositioned = activeSectorFilter === 'ALL'
+    ? unpositionedTables
+    : unpositionedTables.filter(({ sector }) => sector.id === activeSectorFilter);
 
   const selectedEntry = selectedTableId
     ? tableMap.get(selectedTableId) ?? null
@@ -375,10 +381,7 @@ export function VisualMapEditor({
 
   // Auto-distribute all unpositioned tables neatly on the grid
   function handleAutoDistributeUnpositioned() {
-    const targets = unpositionedTables.filter(
-      (entry) =>
-        activeSectorFilter === 'ALL' || entry.sector.id === activeSectorFilter,
-    );
+    const targets = visibleUnpositioned;
     if (targets.length === 0) return;
 
     const cols = Math.min(8, Math.max(3, Math.ceil(Math.sqrt(targets.length * 1.4))));
@@ -542,11 +545,6 @@ export function VisualMapEditor({
       </div>
     );
   }
-
-  const visibleUnpositioned = unpositionedTables.filter(
-    (entry) =>
-      activeSectorFilter === 'ALL' || entry.sector.id === activeSectorFilter,
-  );
 
   return (
     <div className="space-y-4">

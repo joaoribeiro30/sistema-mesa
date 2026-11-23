@@ -12,6 +12,7 @@ import {
   X,
 } from 'lucide-react';
 import { formatMinorCurrency } from '@/lib/format';
+import { compareTablesByLabel } from '@/lib/tableOrder';
 import type { EventSector, EventTable, User } from '@/types/api';
 
 export interface SelectedTableEntry {
@@ -47,6 +48,7 @@ export function SelectionBar({
 
   if (selectedItems.length === 0) return null;
 
+  const orderedItems = [...selectedItems].sort((left, right) => compareTablesByLabel(left.table, right.table));
   const totalMinor = selectedItems.reduce(
     (sum, item) => sum + item.table.priceMinor,
     0,
@@ -81,7 +83,7 @@ export function SelectionBar({
             </div>
 
             <div className="space-y-2">
-              {selectedItems.map(({ table, sector, guestCount }) => (
+              {orderedItems.map(({ table, sector, guestCount }) => (
                 <div
                   key={table.id}
                   className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3.5 py-2.5"

@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import type { Sessions } from '../auth/session.js';
 import type { Db } from '../db.js';
 import { closedObject, dateTime, eventIdParams, eventNotFound, eventStatus, normalizeText, parseDate, plainText, slug } from '../events/contracts.js';
+import { compareTablesByLabel } from '../events/tableOrder.js';
 import { HttpError } from '../http.js';
 import { pagination } from '../security/pagination.js';
 import { imageFields, imageUrl, removeUploads, verifyImageUrl } from './images.js';
@@ -49,9 +50,10 @@ export function registerAdminEvents(app: FastifyInstance, db: Db, sessions: Sess
   api.get('/admin/events/:eventId', { onRequest: admin, schema: { params: eventIdParams } }, async (request) => {
     const event = await db.event.findUnique({
       where: { id: request.params.eventId },
-      include: { sectors: { orderBy: { name: 'asc' }, include: { tables: { orderBy: { label: 'asc' } } } } },
+      include: { sectors: { orderBy: { name: 'asc' }, include: { tables: true } } },
     });
     if (!event) throw eventNotFound();
+    for (const sector of event.sectors) sector.tables.sort(compareTablesByLabel);
     return { event };
   });
 

@@ -187,9 +187,9 @@ test('gestão administrativa, disponibilidade ao vivo e portaria', async (t) => 
     assert.equal((await adminCall('PATCH', `${tablePath}/${sellTable}`, { sectorId: otherSectorId })).statusCode, 404);
     assert.equal((await adminCall('POST', `${tablePath}/batch`, { prefix: 'P', startNumber: 1, count: 2, capacity: 4 })).statusCode, 409);
     assert.equal((await adminCall('GET', sectorPath)).json().sector.tables.length, 1);
-    const batch = await adminCall('POST', `${tablePath}/batch`, { prefix: 'P', startNumber: 2, count: 3, capacity: 4 });
+    const batch = await adminCall('POST', `${tablePath}/batch`, { prefix: 'P', startNumber: 9, count: 3, capacity: 4 });
     assert.equal(batch.statusCode, 201, batch.body);
-    assert.deepEqual(batch.json().tables.map((table: { label: string }) => table.label), ['P2', 'P3', 'P4']);
+    assert.deepEqual(batch.json().tables.map((table: { label: string }) => table.label), ['P9', 'P10', 'P11']);
     [expireTable, pendingTable] = batch.json().tables.map((table: { id: string }) => table.id);
     assert.equal((await adminCall('PATCH', `${tablePath}/${batch.json().tables[2].id}`, { isEnabled: false })).statusCode, 200);
     const disposable = await adminCall('POST', tablePath, { label: 'Remover', capacity: 2 });
@@ -203,7 +203,12 @@ test('gestão administrativa, disponibilidade ao vivo e portaria', async (t) => 
     assert.equal(foreign.statusCode, 404, foreign.body);
     assert.equal((await adminCall('GET', `${tablePath}/${sellTable}`)).json().table.x, null);
     assert.equal((await adminCall('PUT', `${eventPath}/layout`, layout)).statusCode, 200);
-    assert.equal((await adminCall('GET', eventPath)).json().event.sectors[0].tables[0].x, 40.5);
+    const adminTables = (await adminCall('GET', eventPath)).json().event.sectors[0].tables;
+    const sectorTables = (await adminCall('GET', sectorPath)).json().sector.tables;
+    const expectedLabels = ['P1', 'P9', 'P10', 'P11'];
+    assert.deepEqual(adminTables.map((table: { label: string }) => table.label), expectedLabels);
+    assert.deepEqual(sectorTables.map((table: { label: string }) => table.label), expectedLabels);
+    assert.equal(adminTables[0].x, 40.5);
 
     const upload = (kind: string, mediaType: string, payload = png) => inject({
       method: 'POST', url: `${eventPath}/images/${kind}`, payload,
@@ -258,6 +263,12 @@ test('gestão administrativa, disponibilidade ao vivo e portaria', async (t) => 
     assert.equal(publish.statusCode, 200, publish.body);
     assert.equal(publish.json().event.displayMode, 'BOTH');
     assert.equal((await inject({ url: floorImageUrl })).statusCode, 200);
+    const publicDetail = await inject({ url: `/events/${slug}` });
+    assert.equal(publicDetail.statusCode, 200, publicDetail.body);
+    assert.deepEqual(
+      publicDetail.json().event.sectors[0].tables.map((table: { label: string }) => table.label),
+      ['P1', 'P9', 'P10'],
+    );
     const filters = new URLSearchParams({
       city: 'nova serra', venue: eventInput.venue, category: eventInput.category, startsTo: eventInput.endsAt,
       minPriceMinor: '12000', maxPriceMinor: '22000', availability: 'AVAILABLE',
