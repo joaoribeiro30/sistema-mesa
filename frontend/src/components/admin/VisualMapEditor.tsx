@@ -22,7 +22,6 @@ import {
   Plus,
   RotateCcw,
   Save,
-  ScanLine,
   Trash2,
   Upload,
   X,
@@ -37,7 +36,6 @@ import { TableMapMarker } from '@/components/event/TableMapMarker';
 import { useAuthenticatedImageUrl } from '@/hooks/useAuthenticatedImageUrl';
 import { adminApi } from '@/lib/api';
 import { EVENT_IMAGE_ACCEPT, IMAGE_SIZE_LABEL, validateImageFile } from '@/lib/eventImages';
-import { detectFloorMapTables } from '@/lib/floorMapOcr';
 import { formatMinorCurrency, parseMajorPriceToMinor } from '@/lib/format';
 import type {
   AdminEventDetail,
@@ -55,9 +53,6 @@ interface VisualMapEditorProps {
 }
 
 type CoordValue = { x: number; y: number } | { x: null; y: null };
-type OcrState =
-  | { status: 'running'; progress: number | null }
-  | { status: 'success' | 'error'; message: string };
 
 interface FlatTableEntry {
   table: AdminTable;
@@ -69,13 +64,21 @@ const MIN_ZOOM = 0.75;
 const MAX_ZOOM = 2.25;
 const ZOOM_STEP = 0.25;
 
-function clampPercent(value: number, precision = 1): number {
-  const scale = 10 ** precision;
-  return Math.min(100, Math.max(0, Math.round(value * scale) / scale));
+function clampPercent(value: number): number {
+  return Math.min(100, Math.max(0, Math.round(value * 10) / 10));
 }
 
 function snapPercent(value: number, step: number): number {
   return clampPercent(Math.round(value / step) * step);
+}
+
+function coordsEqual(
+  a: { x: number | null; y: number | null },
+  b: { x: number | null; y: number | null },
+): boolean {
+  if (a.x === null && a.y === null && b.x === null && b.y === null) return true;
+  if (a.x === null || a.y === null || b.x === null || b.y === null) return false;
+  return Math.abs(a.x - b.x) < 0.05 && Math.abs(a.y - b.y) < 0.05;
 }
 
 export function VisualMapEditor({
@@ -87,7 +90,6 @@ export function VisualMapEditor({
 }: VisualMapEditorProps) {
   const stageRef = useRef<HTMLDivElement>(null);
   const floorUploadRef = useRef<HTMLInputElement>(null);
-  const ocrRunRef = useRef<AbortController | null>(null);
 
   // Draft coordinates overriding server table positions (keyed by tableId)
   const [draftCoords, setDraftCoords] = useState<Record<string, CoordValue>>({});
@@ -111,8 +113,6 @@ export function VisualMapEditor({
   const [uploadingFloor, setUploadingFloor] = useState(false);
   const [floorUploadError, setFloorUploadError] = useState<string | null>(null);
   const [unreadableFloorSrc, setUnreadableFloorSrc] = useState<string | null>(null);
-  const [ocrState, setOcrState] = useState<OcrState | null>(null);
-  const isDetectingTables = ocrState?.status === 'running';
 
   // Saving layout state
   const [savingLayout, setSavingLayout] = useState(false);
@@ -148,20 +148,12 @@ export function VisualMapEditor({
     );
   }, [event.id, event.floorPlanImageUrl]);
 
-  const { src: resolvedFloorUrl, loading: floorLoading, error: floorLoadError } =
+  const { src: resolvedFloorUrl, error: floorLoadError } =
     useAuthenticatedImageUrl(event.floorPlanImageUrl, imageRevision);
   const floorPreviewFailed = floorLoadError || Boolean(resolvedFloorUrl && resolvedFloorUrl === unreadableFloorSrc);
   const floorImageError = floorUploadError ?? (floorPreviewFailed ? 'Não foi possível exibir a planta baixa no editor.' : null);
 
   useEffect(() => setUnreadableFloorSrc(null), [imageRevision]);
-
-  useEffect(() => {
-    setOcrState(null);
-    return () => {
-      ocrRunRef.current?.abort();
-      ocrRunRef.current = null;
-    };
-  }, [event.id, event.floorPlanImageUrl, imageRevision, resolvedFloorUrl]);
 
   // Flatten tables with sector color index
   const { allTables, tableMap } = useMemo(() => {
@@ -200,7 +192,7 @@ export function VisualMapEditor({
     for (const { table } of allTables) {
       const override = draftCoords[table.id];
       if (!override) continue;
-      if (override.x !== table.x || override.y !== table.y) {
+      if (!coordsEqual(override, table)) {
         if (override.x === null || override.y === null) {
           changed.push({ tableId: table.id, x: null, y: null });
         } else {
@@ -327,7 +319,7 @@ export function VisualMapEditor({
 
   // Keyboard arrow nudging for selected positioned table
   useEffect(() => {
-    if (!selectedEntry || isDetectingTables) return;
+    if (!selectedEntry) return;
 
     function onKeyDown(e: KeyboardEvent) {
       const target = e.target as HTMLElement | null;
@@ -365,7 +357,7 @@ export function VisualMapEditor({
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [selectedEntry, getEffectiveCoord, snapToGrid, gridStep, setTableDraftPosition, isDetectingTables]);
+  }, [selectedEntry, getEffectiveCoord, snapToGrid, gridStep, setTableDraftPosition]);
 
   // Place a single unpositioned table on the map
   function handlePlaceTable(table: AdminTable) {
@@ -409,48 +401,6 @@ export function VisualMapEditor({
     setSelectedTableId(targets[0].table.id);
   }
 
-  async function handleDetectTables() {
-    if (!resolvedFloorUrl || floorLoading || floorPreviewFailed || ocrRunRef.current) return;
-
-    const run = new AbortController();
-    ocrRunRef.current = run;
-    setOcrState({ status: 'running', progress: null });
-    try {
-      const tables = allTables.map(({ table }) => table);
-      const positions = await detectFloorMapTables(
-        resolvedFloorUrl,
-        tables,
-        (progress) => setOcrState({ status: 'running', progress }),
-        run.signal,
-      );
-      if (run.signal.aborted) return;
-
-      const count = Object.keys(positions).length;
-      const nextDraft = { ...draftCoords, ...positions };
-      setDraftCoords(nextDraft);
-      const hasChanges = tables.some((table) => {
-        const position = nextDraft[table.id];
-        return position && (position.x !== table.x || position.y !== table.y);
-      });
-      const summary = `${count} de ${tables.length} ${count === 1 ? 'mesa posicionada' : 'mesas posicionadas'} automaticamente.`;
-      const nextStep = count === 0
-        ? ' Confira se os números da planta correspondem aos rótulos cadastrados.'
-        : hasChanges ? ' Revise os pontos e clique em Salvar Layout.' : ' As posições já estão salvas.';
-      setOcrState({ status: 'success', message: summary + nextStep });
-    } catch (error) {
-      if (run.signal.aborted) return;
-      setOcrState({
-        status: 'error',
-        message: error instanceof Error ? error.message : 'Não foi possível detectar as mesas.',
-      });
-    } finally {
-      if (ocrRunRef.current === run) {
-        ocrRunRef.current = null;
-        if (run.signal.aborted) setOcrState(null);
-      }
-    }
-  }
-
   // Save layout batch to PUT /admin/events/:eventId/layout
   async function handleSaveLayout() {
     if (dirtyCoordinates.length === 0) return;
@@ -463,7 +413,6 @@ export function VisualMapEditor({
         await adminApi.updateLayout(event.id, { tables: slice });
       }
       setDraftCoords({});
-      setOcrState(null);
       onNotify(
         'success',
         `Layout salvo com sucesso (${dirtyCoordinates.length} ${
@@ -618,7 +567,7 @@ export function VisualMapEditor({
           />
           <button
             type="button"
-            disabled={uploadingFloor || isDetectingTables}
+            disabled={uploadingFloor}
             title={`PNG, JPEG ou WebP, até ${IMAGE_SIZE_LABEL}`}
             aria-describedby={floorImageError ? 'floor-image-error' : undefined}
             onClick={() => floorUploadRef.current?.click()}
@@ -634,26 +583,11 @@ export function VisualMapEditor({
 
           <button
             type="button"
-            disabled={isDetectingTables}
             onClick={() => setShowUrlPopover((prev) => !prev)}
-            className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-50"
+            className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
           >
             <Link2 className="h-3.5 w-3.5" />
             URL Planta
-          </button>
-
-          <button
-            type="button"
-            disabled={!resolvedFloorUrl || floorLoading || floorPreviewFailed || uploadingFloor || savingLayout || savingTable || isDetectingTables}
-            onClick={() => void handleDetectTables()}
-            className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-[var(--accent-border)] bg-[var(--accent-soft)] px-3.5 py-1.5 text-xs font-semibold text-[var(--accent)] hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {isDetectingTables ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-            ) : (
-              <ScanLine className="h-3.5 w-3.5" aria-hidden="true" />
-            )}
-            Detectar Mesas na Planta (Auto-OCR)
           </button>
 
           <span className="hidden h-5 w-px bg-[var(--border-subtle)] sm:inline-block" />
@@ -743,11 +677,8 @@ export function VisualMapEditor({
               </span>
               <button
                 type="button"
-                disabled={savingLayout || isDetectingTables}
-                onClick={() => {
-                  setDraftCoords({});
-                  setOcrState(null);
-                }}
+                disabled={savingLayout}
+                onClick={() => setDraftCoords({})}
                 className="inline-flex cursor-pointer items-center gap-1 rounded-full border border-[var(--border-subtle)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
               >
                 <RotateCcw className="h-3.5 w-3.5" />
@@ -758,7 +689,7 @@ export function VisualMapEditor({
 
           <button
             type="button"
-            disabled={savingLayout || isDetectingTables || dirtyCoordinates.length === 0}
+            disabled={savingLayout || dirtyCoordinates.length === 0}
             onClick={() => void handleSaveLayout()}
             className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-[var(--accent)] px-5 py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45"
           >
@@ -779,46 +710,10 @@ export function VisualMapEditor({
         </p>
       )}
 
-      {ocrState?.status === 'running' && (
-        <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-4 py-3 text-sm text-[var(--text-secondary)]">
-          <span role="status">
-            {ocrState.progress === null ? 'Preparando a leitura da planta…' : 'Reconhecendo números na planta…'}
-          </span>
-          <progress
-            aria-label="Progresso da detecção de mesas"
-            max={100}
-            value={ocrState.progress ?? undefined}
-            className="h-2.5 w-32 accent-[var(--accent)]"
-          />
-          {ocrState.progress !== null && <span aria-hidden="true">{ocrState.progress}%</span>}
-          <button
-            type="button"
-            onClick={() => ocrRunRef.current?.abort()}
-            className="cursor-pointer rounded-full border border-[var(--border-subtle)] px-3 py-1 text-xs font-semibold hover:text-[var(--text-primary)]"
-          >
-            Cancelar detecção
-          </button>
-        </div>
-      )}
-
-      {ocrState && ocrState.status !== 'running' && (
-        <p
-          role={ocrState.status === 'error' ? 'alert' : 'status'}
-          className={`rounded-2xl border bg-[var(--bg-surface)] px-4 py-3 text-sm ${
-            ocrState.status === 'error'
-              ? 'border-[var(--danger)]/30 text-[var(--danger)]'
-              : 'border-[var(--border-subtle)] text-[var(--text-primary)]'
-          }`}
-        >
-          {ocrState.message}
-        </p>
-      )}
-
       {/* Floor plan external HTTPS URL inline bar */}
       {showUrlPopover && (
         <form
           onSubmit={handleApplyFloorPlanUrl}
-          inert={isDetectingTables}
           className="flex flex-col gap-2.5 rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)] p-3.5 sm:flex-row sm:items-center"
         >
           <div className="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
@@ -893,7 +788,7 @@ export function VisualMapEditor({
       )}
 
       {/* Main Editor Grid: Canvas + Right Inspector */}
-      <div inert={isDetectingTables} className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
         {/* Left: Interactive Floor Map Canvas + Unpositioned Tray */}
         <div className="space-y-4">
           <div className="relative overflow-hidden rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)]">
@@ -1000,7 +895,7 @@ export function VisualMapEditor({
                             e.stopPropagation();
                             setSelectedTableId(table.id);
                           }}
-                          title={`Mesa ${table.label} (${sector.name}) · X ${coord.x.toFixed(2)}%, Y ${coord.y.toFixed(2)}%`}
+                          title={`Mesa ${table.label} (${sector.name}) · X ${coord.x.toFixed(1)}%, Y ${coord.y.toFixed(1)}%`}
                           aria-pressed={isSelected}
                           className={`touch-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
                           markerClassName={`shadow-sm ${
@@ -1158,7 +1053,7 @@ export function VisualMapEditor({
                       </span>
                       <input
                         type="number"
-                        step="0.01"
+                        step="0.5"
                         min={0}
                         max={100}
                         value={selectedCoord.x}
@@ -1166,7 +1061,7 @@ export function VisualMapEditor({
                           const val = Number.parseFloat(e.target.value);
                           if (!Number.isFinite(val)) return;
                           setTableDraftPosition(selectedEntry.table.id, {
-                            x: clampPercent(val, 2),
+                            x: clampPercent(val),
                             y: selectedCoord.y!,
                           });
                         }}
@@ -1179,7 +1074,7 @@ export function VisualMapEditor({
                       </span>
                       <input
                         type="number"
-                        step="0.01"
+                        step="0.5"
                         min={0}
                         max={100}
                         value={selectedCoord.y}
@@ -1188,7 +1083,7 @@ export function VisualMapEditor({
                           if (!Number.isFinite(val)) return;
                           setTableDraftPosition(selectedEntry.table.id, {
                             x: selectedCoord.x!,
-                            y: clampPercent(val, 2),
+                            y: clampPercent(val),
                           });
                         }}
                         className="font-mono-num w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2.5 py-1.5 text-xs text-[var(--text-primary)] focus:border-[var(--border-strong)] focus:outline-none"
