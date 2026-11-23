@@ -5,8 +5,8 @@ import {
   ArrowLeft,
   Calendar,
   Check,
+  ChevronDown,
   Clock,
-  Info,
   LayoutGrid,
   Map as MapIcon,
   MapPin,
@@ -49,7 +49,6 @@ import {
 import {
   formatEventDateLine,
   formatMinorCurrency,
-  getEventFallbackGradient,
   resolveApiAssetUrl,
 } from '@/lib/format';
 import type {
@@ -311,30 +310,26 @@ export function EventDetailPage() {
     [selectedItems],
   );
 
-  // Aggregate stats for hero summary
+  // Inventory summary for the selection header
   const stats = useMemo(() => {
     if (!event) {
-      return { total: 0, available: 0, reserved: 0, sold: 0, minPriceMinor: null as number | null };
+      return { total: 0, available: 0, minPriceMinor: null as number | null };
     }
     let total = 0;
     let available = 0;
-    let reserved = 0;
-    let sold = 0;
     let minPrice: number | null = null;
 
     for (const sector of event.sectors) {
       for (const table of sector.tables) {
         total += 1;
-        if (table.status === 'SOLD') sold += 1;
-        else if (table.status === 'RESERVED' || !table.available) reserved += 1;
-        else available += 1;
+        if (isTableSelectable(table)) available += 1;
 
         if (minPrice === null || table.priceMinor < minPrice) {
           minPrice = table.priceMinor;
         }
       }
     }
-    return { total, available, reserved, sold, minPriceMinor: minPrice };
+    return { total, available, minPriceMinor: minPrice };
   }, [event]);
 
   const handleToggleTable = useCallback((table: EventTable, _sector: EventSector) => {
@@ -496,14 +491,11 @@ export function EventDetailPage() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
-        <div className="skeleton h-8 w-36 rounded-full" />
-        <div className="skeleton h-80 w-full rounded-3xl sm:h-[420px]" />
-        <div className="grid gap-4 lg:grid-cols-3">
-          <div className="skeleton h-40 rounded-3xl lg:col-span-2" />
-          <div className="skeleton h-40 rounded-3xl" />
-        </div>
-        <div className="skeleton h-[460px] w-full rounded-3xl" />
+      <div className="mx-auto max-w-7xl space-y-4 px-4 pt-4 pb-16 sm:px-6 md:space-y-7 md:pt-6 lg:px-8">
+        <div className="skeleton h-36 rounded-2xl md:h-44 md:rounded-3xl" />
+        <div className="skeleton h-8 w-48 rounded-xl" />
+        <div className="skeleton h-20 rounded-2xl md:h-16" />
+        <div className="skeleton h-64 rounded-2xl md:h-[460px] md:rounded-3xl" />
       </div>
     );
   }
@@ -551,232 +543,117 @@ export function EventDetailPage() {
 
   return (
     <div
-      className={`mx-auto max-w-7xl space-y-8 px-4 pt-6 sm:px-6 lg:px-8 ${
+      className={`mx-auto max-w-7xl space-y-4 px-4 pt-4 sm:px-6 md:space-y-7 md:pt-6 lg:px-8 ${
         selectedItems.length > 0 ? 'pb-36 sm:pb-32' : 'pb-16'
       }`}
     >
-      {/* Top Action Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <Link
-          to="/"
-          className="inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-4 py-2 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          Voltar aos eventos
-        </Link>
-
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Live SSE Connection Indicator */}
-          {streamStatus === 'closed' ? (
-            <button
-              type="button"
-              onClick={reconnectStream}
-              className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-[var(--danger)]/35 bg-[var(--danger)]/10 px-3 py-1.5 text-[11px] font-semibold text-[var(--danger)] transition-colors hover:bg-[var(--danger)]/20"
+      <header className="overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] md:flex md:rounded-3xl">
+        <div className="min-w-0 flex-1 px-4 py-3 md:p-7">
+          <div className="flex items-center justify-between gap-2">
+            <Link
+              to="/"
+              className="inline-flex min-h-10 items-center gap-1.5 rounded-xl pr-2 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
             >
-              <Radio className="h-3.5 w-3.5" />
-              Offline · Reconectar
-            </button>
-          ) : (
-            <span
-              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-semibold ${
-                streamStatus === 'live'
-                  ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700'
-                  : 'border-amber-500/30 bg-amber-500/10 text-amber-700'
-              }`}
-            >
-              <span
-                className={`h-2 w-2 rounded-full ${
-                  streamStatus === 'live'
-                    ? 'animate-pulse bg-emerald-500'
-                    : 'animate-pulse bg-amber-500'
-                }`}
-              />
-              {streamStatus === 'live'
-                ? 'Tempo real ativo'
-                : streamStatus === 'reconnecting'
-                  ? 'Reconectando...'
-                  : 'Conectando ao vivo...'}
-            </span>
-          )}
+              <ArrowLeft className="h-3.5 w-3.5 shrink-0" />
+              Voltar aos eventos
+            </Link>
 
-          <button
-            type="button"
-            onClick={() => void loadEvent(true)}
-            disabled={refreshing}
-            title="Recarregar preços, imagens e posições"
-            className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3.5 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] disabled:opacity-60"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-            Atualizar
-          </button>
-
-          <button
-            type="button"
-            onClick={handleShareLink}
-            className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3.5 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
-          >
-            {copiedLink ? (
-              <>
-                <Check className="h-3.5 w-3.5 text-emerald-500" />
-                Link copiado
-              </>
-            ) : (
-              <>
-                <Share2 className="h-3.5 w-3.5" />
-                Compartilhar
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-
-      {/* 1. Event Hero Banner & Key Metadata */}
-      <section className="overflow-hidden rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-[var(--shadow-elevated)]">
-        {cover ? (
-          <img
-            src={cover}
-            alt=""
-            className="h-44 w-full border-b border-[var(--border-subtle)] object-cover sm:h-60 lg:h-72"
-          />
-        ) : (
-          <div
-            aria-hidden="true"
-            className="h-14 border-b border-[var(--border-subtle)] sm:h-20"
-            style={{ background: getEventFallbackGradient(event.id) }}
-          />
-        )}
-
-        <div className="p-6 sm:p-9">
-          <div className="flex flex-wrap items-center gap-2">
-            {event.category && (
-              <span className="rounded-full bg-[var(--accent-soft)] px-3.5 py-1 text-[11px] font-semibold tracking-wide text-[var(--accent)]">
-                {event.category}
-              </span>
-            )}
-            <span className="rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-3 py-1 text-[11px] font-medium text-[var(--text-secondary)]">
-              {stats.available} de {stats.total}{' '}
-              {stats.total === 1 ? 'mesa livre' : 'mesas livres'}
-            </span>
+            <div className="flex shrink-0 items-center gap-1 md:gap-2">
+              <button
+                type="button"
+                onClick={() => void loadEvent(true)}
+                disabled={refreshing}
+                aria-label="Atualizar evento"
+                title="Recarregar preços, imagens e posições"
+                className="inline-flex min-h-10 min-w-10 cursor-pointer items-center justify-center gap-1.5 rounded-full border border-[var(--border-subtle)] text-xs font-medium text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] disabled:opacity-60 md:px-3"
+              >
+                <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                <span className="hidden md:inline">Atualizar</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleShareLink}
+                aria-label={copiedLink ? 'Link copiado' : 'Compartilhar'}
+                title={copiedLink ? 'Link copiado' : 'Compartilhar'}
+                className="inline-flex min-h-10 min-w-10 cursor-pointer items-center justify-center gap-1.5 rounded-full border border-[var(--border-subtle)] text-xs font-medium text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] md:px-3"
+              >
+                {copiedLink ? (
+                  <Check className="h-4 w-4 text-[var(--success)]" />
+                ) : (
+                  <Share2 className="h-4 w-4" />
+                )}
+                <span className="hidden md:inline">{copiedLink ? 'Link copiado' : 'Compartilhar'}</span>
+              </button>
+            </div>
           </div>
 
-          <h1 className="font-display mt-3 max-w-4xl text-3xl leading-[1.06] font-bold tracking-tight sm:text-5xl">
+          <h1 className="font-display mt-2 text-2xl leading-tight font-bold tracking-tight [overflow-wrap:anywhere] md:mt-3 md:text-4xl">
             {event.title}
           </h1>
-
-          <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-[var(--text-secondary)] sm:text-sm">
-            <span className="inline-flex items-center gap-2">
-              <Calendar className="h-4 w-4 shrink-0 text-[var(--accent)]" />
-              {formatEventDateLine(event.startsAt, event.endsAt)}
+          <div className="mt-2 flex flex-col gap-1.5 text-xs text-[var(--text-secondary)] md:mt-3 md:flex-row md:flex-wrap md:gap-x-5 md:text-sm">
+            <span className="inline-flex items-start gap-1.5">
+              <Calendar className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--accent)] md:h-4 md:w-4" />
+              <span>{formatEventDateLine(event.startsAt, event.endsAt)}</span>
             </span>
-            <span className="inline-flex items-center gap-2">
-              <MapPin className="h-4 w-4 shrink-0 text-[var(--accent)]" />
-              {event.venue}
-              {event.city ? ` · ${event.city}` : ''}
+            <span className="inline-flex items-start gap-1.5">
+              <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--accent)] md:h-4 md:w-4" />
+              <span className="[overflow-wrap:anywhere]">
+                {event.venue}{event.city ? ` · ${event.city}` : ''}
+              </span>
             </span>
-            {stats.minPriceMinor !== null && (
-              <span className="font-mono-num inline-flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-3 py-1 text-xs font-semibold text-[var(--text-primary)]">
-                A partir de {formatMinorCurrency(stats.minPriceMinor, event.currency)}
-              </span>
-            )}
           </div>
-        </div>
-      </section>
-
-      {/* About & Event Rules Grid */}
-      <section className="grid gap-5 lg:grid-cols-12">
-        <div className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 lg:col-span-7">
-          <div className="flex items-center gap-2 text-xs font-semibold tracking-[0.14em] text-[var(--accent)] uppercase">
-            <Info className="h-3.5 w-3.5" />
-            Sobre o evento
-          </div>
-          <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-[var(--text-secondary)]">
-            {event.description?.trim() ||
-              `Garanta sua mesa no ${event.title} em ${event.venue}${event.city ? `, ${event.city}` : ''}. Selecione o setor ideal e confirme sua reserva em poucos cliques com ingresso digital.`}
-          </p>
+          {event.category && (
+            <span className="mt-3 hidden rounded-full bg-[var(--accent-soft)] px-3 py-1 text-[11px] font-semibold text-[var(--accent)] md:inline-flex">
+              {event.category}
+            </span>
+          )}
         </div>
 
-        <div className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 lg:col-span-5">
-          <div className="flex items-center gap-2 text-xs font-semibold tracking-[0.14em] text-[var(--text-muted)] uppercase">
-            <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
-            Regras da reserva
-          </div>
-          <ul className="mt-3.5 space-y-2.5 text-xs leading-relaxed text-[var(--text-secondary)]">
-            <li className="flex items-start gap-2.5">
-              <Clock className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
-              <span>
-                <strong className="text-[var(--text-primary)]">Bloqueio de 10 minutos:</strong>{' '}
-                ao avançar para o checkout, sua mesa fica reservada exclusivamente para você concluir o pagamento.
-              </span>
-            </li>
-            <li className="flex items-start gap-2.5">
-              <Users className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]" />
-              <span>
-                <strong className="text-[var(--text-primary)]">Capacidade por mesa:</strong>{' '}
-                respeite o limite máximo de pessoas indicado em cada mesa selecionada.
-              </span>
-            </li>
-            <li className="flex items-start gap-2.5">
-              <QrCode className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
-              <span>
-                <strong className="text-[var(--text-primary)]">Acesso por QR Code:</strong>{' '}
-                comprovante digital liberado imediatamente após a confirmação (requer conta com e-mail verificado).
-              </span>
-            </li>
-          </ul>
-        </div>
-      </section>
+        {cover && (
+          <div
+            aria-hidden="true"
+            className="hidden w-1/3 shrink-0 border-l border-[var(--border-subtle)] bg-[var(--bg-elevated)] bg-cover bg-center md:block"
+            style={{ backgroundImage: `url(${JSON.stringify(cover)})` }}
+          />
+        )}
+      </header>
 
-      {/* Live SSE / Reservation Notifications */}
-      {liveNotice && (
-        <div
-          role="status"
-          className="flex items-center justify-between gap-3 rounded-2xl border border-amber-500/35 bg-amber-500/10 px-4 py-3 text-xs font-medium text-amber-700"
-        >
-          <span className="flex items-center gap-2">
-            <Radio className="h-4 w-4 shrink-0" />
-            {liveNotice}
-          </span>
-          <button
-            type="button"
-            onClick={() => setLiveNotice(null)}
-            aria-label="Dispensar aviso"
-            className="cursor-pointer rounded-full p-1 hover:bg-amber-500/15"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      )}
-
-      {reservationError && (
-        <div
-          role="alert"
-          className="flex items-start justify-between gap-3 rounded-2xl border border-[var(--danger)]/35 bg-[var(--danger)]/10 px-4 py-3 text-xs leading-relaxed text-[var(--danger)]"
-        >
-          <span className="flex items-start gap-2">
-            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>{reservationError}</span>
-          </span>
-          <button
-            type="button"
-            onClick={() => setReservationError(null)}
-            aria-label="Fechar erro"
-            className="cursor-pointer rounded-full p-1 hover:bg-[var(--danger)]/15"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      )}
-
-      {/* 2. Hybrid Table Selection Workspace */}
-      <section className="space-y-5">
-        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+      <section aria-label="Seleção de mesas" className="space-y-2.5 md:space-y-4">
+        <div className="flex flex-col gap-2.5 md:flex-row md:items-end md:justify-between">
           <div>
-            <p className="text-xs font-semibold tracking-[0.18em] text-[var(--accent)] uppercase">
-              Seleção de mesas
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 md:justify-start">
+              <h2 className="font-display text-xl leading-tight font-bold tracking-tight md:text-3xl">
+                Escolha onde ficar
+              </h2>
+              {streamStatus === 'closed' ? (
+                <button
+                  type="button"
+                  onClick={reconnectStream}
+                  className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-full border border-[var(--danger)]/35 bg-[var(--danger)]/10 px-2.5 text-[11px] font-semibold text-[var(--danger)] hover:bg-[var(--danger)]/20"
+                >
+                  <Radio className="h-3 w-3 shrink-0" />
+                  Reconectar
+                </button>
+              ) : (
+                <span
+                  className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                    streamStatus === 'live' ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-800'
+                  }`}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`h-1.5 w-1.5 rounded-full ${streamStatus === 'live' ? 'bg-emerald-600' : 'bg-amber-600'}`}
+                  />
+                  {streamStatus === 'live' ? 'Ao vivo' : streamStatus === 'reconnecting' ? 'Reconectando…' : 'Conectando…'}
+                </span>
+              )}
+            </div>
+            <p className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-xs text-[var(--text-secondary)]">
+              <span>{stats.available} de {stats.total} {stats.total === 1 ? 'mesa livre' : 'mesas livres'}</span>
+              {stats.minPriceMinor !== null && (
+                <span className="font-medium">· A partir de {formatMinorCurrency(stats.minPriceMinor, event.currency)}</span>
+              )}
             </p>
-            <h2 className="font-display mt-1 text-2xl font-bold tracking-tight text-[var(--text-primary)] sm:text-3xl">
-              Escolha onde ficar
-            </h2>
           </div>
 
           {/* Mode Switcher (shown when displayMode === BOTH) */}
@@ -784,20 +661,20 @@ export function EventDetailPage() {
             <div
               role="tablist"
               aria-label="Modo de visualização das mesas"
-              className="inline-flex self-start rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-1 md:self-auto"
+              className="grid grid-cols-2 gap-1 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-1 md:flex"
             >
               <button
                 type="button"
                 role="tab"
                 aria-selected={effectiveViewMode === 'MAP'}
                 onClick={() => setViewMode('MAP')}
-                className={`inline-flex cursor-pointer items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold transition-all ${
+                className={`inline-flex min-h-11 cursor-pointer items-center justify-center gap-1.5 rounded-full px-2 text-xs font-semibold transition-colors md:px-4 ${
                   effectiveViewMode === 'MAP'
                     ? 'bg-[var(--cta-bg)] text-[var(--cta-text)] shadow-sm'
                     : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                 }`}
               >
-                <MapIcon className="h-3.5 w-3.5" />
+                <MapIcon className="h-3.5 w-3.5 shrink-0" />
                 Mapa Interativo
               </button>
               <button
@@ -805,13 +682,13 @@ export function EventDetailPage() {
                 role="tab"
                 aria-selected={effectiveViewMode === 'LIST'}
                 onClick={() => setViewMode('LIST')}
-                className={`inline-flex cursor-pointer items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold transition-all ${
+                className={`inline-flex min-h-11 cursor-pointer items-center justify-center gap-1.5 rounded-full px-2 text-xs font-semibold transition-colors md:px-4 ${
                   effectiveViewMode === 'LIST'
                     ? 'bg-[var(--cta-bg)] text-[var(--cta-text)] shadow-sm'
                     : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                 }`}
               >
-                <LayoutGrid className="h-3.5 w-3.5" />
+                <LayoutGrid className="h-3.5 w-3.5 shrink-0" />
                 Lista por Setores
               </button>
             </div>
@@ -833,70 +710,114 @@ export function EventDetailPage() {
         </div>
 
         {/* Sector Filter Pills + Status Legend */}
-        <div className="flex flex-col gap-3 rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 lg:flex-row lg:items-center lg:justify-between">
-          {/* Sector quick pills */}
-          <div className="no-scrollbar flex items-center gap-2 overflow-x-auto pb-1 lg:pb-0">
-            <button
-              type="button"
-              onClick={() => setActiveSectorId(null)}
-              className={`shrink-0 cursor-pointer rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ${
-                activeSectorId === null
-                  ? 'bg-[var(--cta-bg)] text-[var(--cta-text)]'
-                  : 'border border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-              }`}
+        <div className="flex flex-col gap-2 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2.5 py-2 md:gap-3 md:px-4 md:py-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 items-center gap-2">
+            <div
+              role="group"
+              aria-label="Filtrar por setor"
+              className="no-scrollbar flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto p-0.5"
             >
-              Todos os setores ({stats.available})
-            </button>
-            {event.sectors.map((sector) => {
-              const sectorAvail = sector.tables.filter((t) =>
-                isTableSelectable(t),
-              ).length;
-              const selected = activeSectorId === sector.id;
-              return (
-                <button
-                  key={sector.id}
-                  type="button"
-                  onClick={() =>
-                    setActiveSectorId(selected ? null : sector.id)
-                  }
-                  className={`shrink-0 cursor-pointer rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${
-                    selected
-                      ? 'border border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent)]'
-                      : 'border border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                  }`}
-                >
-                  {sector.name}{' '}
-                  <span className="opacity-70">({sectorAvail})</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Color-coded Legend + Only available toggle */}
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-[var(--border-subtle)] pt-3 lg:border-t-0 lg:pt-0">
-            <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5 text-[11px] font-medium text-[var(--text-secondary)]">
-              {LEGEND_STATES.map((state) => {
-                const meta = TABLE_STATUS_META[state];
+              <button
+                type="button"
+                aria-label={`Todos os setores (${stats.available})`}
+                aria-pressed={activeSectorId === null}
+                onClick={() => setActiveSectorId(null)}
+                className={`min-h-9 shrink-0 cursor-pointer rounded-full border px-2.5 text-[11px] font-semibold transition-colors md:px-3.5 md:text-xs ${
+                  activeSectorId === null
+                    ? 'border-transparent bg-[var(--cta-bg)] text-[var(--cta-text)]'
+                    : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                }`}
+              >
+                Todos<span className="hidden md:inline"> os setores</span> ({stats.available})
+              </button>
+              {event.sectors.map((sector) => {
+                const sectorAvail = sector.tables.filter(isTableSelectable).length;
+                const selected = activeSectorId === sector.id;
                 return (
-                  <span key={state} className="inline-flex items-center gap-1.5">
-                    <span className={`h-2.5 w-2.5 rounded-full ${meta.dotClass}`} />
-                    {meta.shortLabel}
-                  </span>
+                  <button
+                    key={sector.id}
+                    type="button"
+                    aria-pressed={selected}
+                    onClick={() => setActiveSectorId(selected ? null : sector.id)}
+                    className={`min-h-9 shrink-0 cursor-pointer rounded-full border px-2.5 text-[11px] font-medium transition-colors md:px-3.5 md:text-xs ${
+                      selected
+                        ? 'border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent)]'
+                        : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                    }`}
+                  >
+                    {sector.name} ({sectorAvail})
+                  </button>
                 );
               })}
             </div>
 
-            <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-3 py-1 text-[11px] font-medium text-[var(--text-primary)] select-none">
+            <label className="inline-flex min-h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-2.5 text-[11px] font-medium text-[var(--text-primary)] select-none">
               <input
                 type="checkbox"
                 checked={onlyAvailable}
                 onChange={(e) => setOnlyAvailable(e.target.checked)}
-                className="h-3.5 w-3.5 accent-[#ff3366]"
+                className="h-3.5 w-3.5 accent-[var(--accent)]"
               />
               Somente livres
             </label>
           </div>
+
+          <ul
+            aria-label="Legenda de status das mesas"
+            className="flex shrink-0 flex-wrap items-center gap-x-2.5 gap-y-1 border-t border-[var(--border-subtle)] px-0.5 pt-2 text-[11px] font-medium text-[var(--text-secondary)] md:gap-x-3.5 lg:border-t-0 lg:pt-0"
+          >
+            {LEGEND_STATES.map((state) => {
+              const meta = TABLE_STATUS_META[state];
+              return (
+                <li key={state} className="inline-flex items-center gap-1">
+                  <span aria-hidden="true" className={`h-2 w-2 rounded-full ${meta.dotClass}`} />
+                  {meta.shortLabel}
+                </li>
+              );
+            })}
+          </ul>
         </div>
+
+        {/* Live SSE / Reservation Notifications */}
+        {liveNotice && (
+          <div
+            role="status"
+            className="flex items-center justify-between gap-3 rounded-2xl border border-amber-500/35 bg-amber-500/10 px-4 py-3 text-xs font-medium text-amber-700"
+          >
+            <span className="flex items-center gap-2">
+              <Radio className="h-4 w-4 shrink-0" />
+              {liveNotice}
+            </span>
+            <button
+              type="button"
+              onClick={() => setLiveNotice(null)}
+              aria-label="Dispensar aviso"
+              className="cursor-pointer rounded-full p-1 hover:bg-amber-500/15"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
+
+        {reservationError && (
+          <div
+            role="alert"
+            className="flex items-start justify-between gap-3 rounded-2xl border border-[var(--danger)]/35 bg-[var(--danger)]/10 px-4 py-3 text-xs leading-relaxed text-[var(--danger)]"
+          >
+            <span className="flex items-start gap-2">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{reservationError}</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => setReservationError(null)}
+              aria-label="Fechar erro"
+              className="cursor-pointer rounded-full p-1 hover:bg-[var(--danger)]/15"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
 
         {/* Render Active View */}
         {event.sectors.length === 0 ? (
@@ -925,7 +846,45 @@ export function EventDetailPage() {
         )}
       </section>
 
-      {/* 4. Floating Selection & Checkout Bar */}
+      <details className="group rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] md:rounded-3xl">
+        <summary className="flex min-h-12 cursor-pointer list-none items-center gap-2.5 rounded-2xl px-4 text-sm font-semibold hover:bg-[var(--bg-elevated)] md:px-6 [&::-webkit-details-marker]:hidden">
+          <ShieldCheck className="h-4 w-4 text-[var(--accent)]" />
+          Regras da reserva
+          <ChevronDown className="ml-auto h-4 w-4 text-[var(--text-muted)] transition-transform group-open:rotate-180" />
+        </summary>
+        <ul className="grid gap-3 border-t border-[var(--border-subtle)] p-4 text-xs leading-relaxed text-[var(--text-secondary)] md:grid-cols-2 md:gap-4 md:px-6">
+          <li className="flex items-start gap-2">
+            <Clock className="mt-0.5 h-4 w-4 shrink-0 text-[var(--warning)]" />
+            <span>
+              <strong className="text-[var(--text-primary)]">Bloqueio de 10 minutos.</strong>{' '}
+              Conclua o pagamento por Pix ou cartão dentro desse prazo para confirmar a mesa.
+            </span>
+          </li>
+          <li className="flex items-start gap-2">
+            <Users className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]" />
+            <span>
+              <strong className="text-[var(--text-primary)]">Capacidade por mesa.</strong>{' '}
+              Confira o limite de pessoas antes de avançar.
+            </span>
+          </li>
+          <li className="flex items-start gap-2">
+            <X className="mt-0.5 h-4 w-4 shrink-0 text-[var(--text-muted)]" />
+            <span>
+              <strong className="text-[var(--text-primary)]">Cancelamento.</strong>{' '}
+              Você pode cancelar o bloqueio enquanto a reserva estiver pendente de pagamento.
+            </span>
+          </li>
+          <li className="flex items-start gap-2">
+            <QrCode className="mt-0.5 h-4 w-4 shrink-0 text-[var(--success)]" />
+            <span>
+              <strong className="text-[var(--text-primary)]">Ingresso com QR Code.</strong>{' '}
+              Após confirmar o pagamento, abra o ingresso em Minhas Reservas e apresente-o na portaria.
+            </span>
+          </li>
+        </ul>
+      </details>
+
+      {/* Floating Selection & Checkout Bar */}
       <SelectionBar
         selectedItems={selectedItems}
         currency={event.currency}

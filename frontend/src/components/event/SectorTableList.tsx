@@ -38,7 +38,7 @@ export function SectorTableList({
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3 md:space-y-5">
       {visibleSectors.map((sector) => {
         const availableCount = sector.tables.filter((t) =>
           isTableSelectable(t),
@@ -60,13 +60,13 @@ export function SectorTableList({
           <section
             key={sector.id}
             aria-label={`Setor ${sector.name}`}
-            className="overflow-hidden rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]"
+            className="overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] md:rounded-3xl"
           >
             {/* Sector header */}
-            <div className="flex flex-col gap-3 border-b border-[var(--border-subtle)] bg-[var(--bg-elevated)]/50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-              <div className="space-y-1">
-                <div className="flex flex-wrap items-center gap-2.5">
-                  <h3 className="font-display text-lg font-bold text-[var(--text-primary)]">
+            <div className="flex items-start justify-between gap-3 border-b border-[var(--border-subtle)] bg-[var(--bg-elevated)]/50 px-3 py-2.5 md:items-center md:px-6 md:py-4">
+              <div className="min-w-0 space-y-1">
+                <div className="flex flex-wrap items-center gap-1.5 md:gap-2.5">
+                  <h3 className="font-display text-base font-bold text-[var(--text-primary)] [overflow-wrap:anywhere] md:text-lg">
                     {sector.name}
                   </h3>
                   <span className="rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2.5 py-0.5 text-[11px] font-medium text-[var(--text-secondary)]">
@@ -81,11 +81,11 @@ export function SectorTableList({
                 )}
               </div>
 
-              <div className="shrink-0 text-left sm:text-right">
+              <div className="shrink-0 text-right">
                 <p className="text-[10px] font-semibold tracking-wider text-[var(--text-muted)] uppercase">
                   Preço base
                 </p>
-                <p className="font-mono-num text-base font-bold text-[var(--text-primary)]">
+                <p className="font-mono-num text-xs font-bold text-[var(--text-primary)] md:text-base">
                   {formatMinorCurrency(displayBasePrice, currency)}
                 </p>
               </div>
@@ -97,7 +97,7 @@ export function SectorTableList({
                 Nenhuma mesa disponível neste setor no momento.
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 sm:p-5 lg:grid-cols-3">
+              <div className="grid grid-cols-1 gap-2 p-3 sm:grid-cols-2 md:gap-3 md:p-5 lg:grid-cols-3">
                 {filteredTables.map((table) => {
                   const isSelected = selectedTableIds.has(table.id);
                   const visualState = getVisualTableState(table, isSelected);
@@ -108,7 +108,7 @@ export function SectorTableList({
                   return (
                     <div
                       key={table.id}
-                      className={`group flex flex-col justify-between gap-3 rounded-2xl border p-4 transition-all ${
+                      className={`group flex flex-col justify-between gap-2 rounded-2xl border p-3 transition-all md:gap-3 md:p-4 ${
                         isSelected
                           ? 'border-[var(--accent)] bg-[var(--accent-soft)]'
                           : selectable
@@ -117,13 +117,13 @@ export function SectorTableList({
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <div>
+                        <div className="min-w-0">
                           <div className="flex items-center gap-2">
                             <span
-                              className={`h-2.5 w-2.5 rounded-full ${meta.dotClass}`}
+                              className={`h-2.5 w-2.5 shrink-0 rounded-full ${meta.dotClass}`}
                               aria-hidden="true"
                             />
-                            <h4 className="font-display text-base font-bold text-[var(--text-primary)]">
+                            <h4 className="font-display text-base font-bold text-[var(--text-primary)] [overflow-wrap:anywhere]">
                               Mesa {table.label}
                             </h4>
                           </div>
@@ -148,7 +148,7 @@ export function SectorTableList({
                         </p>
                       )}
 
-                      <div className="flex items-center justify-between gap-3 border-t border-[var(--border-subtle)] pt-3">
+                      <div className="flex items-center justify-between gap-3 border-t border-[var(--border-subtle)] pt-2 md:pt-3">
                         <span className="font-mono-num text-sm font-bold text-[var(--text-primary)]">
                           {formatMinorCurrency(table.priceMinor, currency)}
                         </span>
@@ -158,7 +158,7 @@ export function SectorTableList({
                             type="button"
                             onClick={() => onToggleTable(table, sector)}
                             aria-pressed={isSelected}
-                            className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all active:scale-[0.98] ${
+                            className={`inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all active:scale-[0.98] md:min-h-0 ${
                               isSelected
                                 ? 'bg-[var(--accent)] text-white hover:bg-rose-800'
                                 : 'bg-[var(--cta-bg)] text-[var(--cta-text)] hover:bg-[var(--cta-hover)]'

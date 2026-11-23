@@ -174,7 +174,7 @@ export function InteractiveFloorMap({
   function handlePointerUp(e: ReactPointerEvent<HTMLDivElement>) {
     const origin = dragOrigin.current;
     if (!origin || origin.pointerId !== e.pointerId) return;
-    if (!origin.moved) {
+    if (e.type === 'pointerup' && !origin.moved) {
       setInspectedTableId(null);
     }
     dragOrigin.current = null;
@@ -184,24 +184,30 @@ export function InteractiveFloorMap({
   const activeInspectorEntry =
     (hoveredTableId ? tableLookup.get(hoveredTableId) : null) ??
     (inspectedTableId ? tableLookup.get(inspectedTableId) : null);
+  const showUnpositionedOnlyOnMobile =
+    !showFloorImage && positionedTables.length === 0 && unpositionedTables.length > 0;
 
   return (
-    <div className="space-y-4">
-      <div className="relative overflow-hidden rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)]">
+    <div className="space-y-3 md:space-y-4">
+      <div
+        className={`relative overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] md:rounded-3xl ${
+          showUnpositionedOnlyOnMobile ? 'hidden md:block' : ''
+        }`}
+      >
         {/* Top-left hint badge */}
-        <div className="pointer-events-none absolute top-4 left-4 z-20 hidden items-center gap-2 rounded-full border border-[var(--border-strong)] bg-[var(--bg-surface)] px-3.5 py-1.5 text-[11px] font-medium text-[var(--text-secondary)] sm:inline-flex">
+        <div className="pointer-events-none absolute top-4 left-4 z-20 hidden items-center gap-2 rounded-full border border-[var(--border-strong)] bg-[var(--bg-surface)] px-3.5 py-1.5 text-[11px] font-medium text-[var(--text-secondary)] md:inline-flex">
           <Move className="h-3.5 w-3.5 text-[var(--accent)]" />
           Arraste para mover · Ctrl + Scroll para zoom
         </div>
 
         {/* Top-right Zoom Controls */}
-        <div className="absolute top-4 right-4 z-20 flex items-center gap-1 rounded-full border border-[var(--border-strong)] bg-[var(--bg-surface)] p-1 shadow-sm">
+        <div className="flex items-center justify-end gap-1 border-b border-[var(--border-subtle)] bg-[var(--bg-surface)] p-1 md:absolute md:top-4 md:right-4 md:z-20 md:rounded-full md:border md:border-[var(--border-strong)] md:shadow-sm">
           <button
             type="button"
             onClick={handleZoomOut}
             disabled={scale <= MIN_SCALE}
             aria-label="Diminuir zoom"
-            className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-[var(--bg-hover)] disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex size-11 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-[var(--bg-hover)] disabled:cursor-not-allowed disabled:opacity-40 md:size-8"
           >
             <Minus className="h-4 w-4" />
           </button>
@@ -213,7 +219,7 @@ export function InteractiveFloorMap({
             onClick={handleZoomIn}
             disabled={scale >= MAX_SCALE}
             aria-label="Aumentar zoom"
-            className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-[var(--bg-hover)] disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex size-11 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-[var(--bg-hover)] disabled:cursor-not-allowed disabled:opacity-40 md:size-8"
           >
             <Plus className="h-4 w-4" />
           </button>
@@ -223,7 +229,7 @@ export function InteractiveFloorMap({
             onClick={handleResetView}
             aria-label="Centralizar mapa"
             title="Centralizar mapa"
-            className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-[var(--bg-hover)]"
+            className="flex size-11 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-[var(--bg-hover)] md:size-8"
           >
             <Maximize2 className="h-3.5 w-3.5" />
           </button>
@@ -236,11 +242,10 @@ export function InteractiveFloorMap({
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
-          className={`relative flex min-h-[420px] w-full items-center justify-center overflow-hidden p-4 select-none sm:min-h-[540px] sm:p-8 ${
+          className={`relative flex min-h-[250px] w-full items-center justify-center overflow-hidden p-6 select-none md:min-h-[540px] md:p-8 ${
             isDragging ? 'cursor-grabbing' : 'cursor-grab'
-          }`}
+          } ${scale > 1 ? 'touch-none' : 'touch-pan-y md:touch-none'}`}
           style={{
-            touchAction: 'none',
             backgroundImage:
               'radial-gradient(circle at 1px 1px, var(--map-grid) 1px, transparent 0)',
             backgroundSize: '24px 24px',
@@ -272,7 +277,7 @@ export function InteractiveFloorMap({
                     backgroundSize: '10% 10%',
                   }}
                 />
-                <div className="pointer-events-none absolute top-4 left-1/2 -translate-x-1/2 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-6 py-1.5 text-[10px] font-semibold tracking-[0.26em] text-[var(--text-secondary)] uppercase">
+                <div className="pointer-events-none absolute top-3 left-1/2 -translate-x-1/2 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-3 py-1 text-[10px] font-semibold tracking-[0.12em] whitespace-nowrap text-[var(--text-secondary)] uppercase md:top-4 md:px-6 md:py-1.5 md:tracking-[0.26em]">
                   Palco / Frente
                 </div>
                 {positionedTables.length === 0 && (
@@ -344,7 +349,7 @@ export function InteractiveFloorMap({
                     }}
                     aria-label={`Mesa ${table.label}, setor ${sector.name}, ${table.capacity} lugares, ${formatMinorCurrency(table.priceMinor, currency)}, ${meta.label}`}
                     aria-pressed={isSelected}
-                    className={`group relative flex h-9 min-w-9 cursor-pointer items-center justify-center rounded-full border-2 px-2 text-[11px] font-bold tracking-tight transition-all duration-150 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--text-primary)] sm:h-10 sm:min-w-10 ${meta.markerClass}`}
+                    className={`group relative flex h-11 min-w-11 cursor-pointer items-center justify-center rounded-full border-2 px-2 text-[11px] font-bold tracking-tight transition-all duration-150 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--text-primary)] md:h-10 md:min-w-10 ${meta.markerClass}`}
                   >
                     {isSelected ? (
                       <span className="inline-flex items-center gap-0.5">
@@ -365,7 +370,7 @@ export function InteractiveFloorMap({
                   {isHovered && (
                     <div
                       role="tooltip"
-                      className={`pointer-events-none absolute left-1/2 z-40 hidden w-56 -translate-x-1/2 rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)] p-3 text-left shadow-[var(--shadow-elevated)] sm:block ${
+                      className={`pointer-events-none absolute left-1/2 z-40 hidden w-56 -translate-x-1/2 rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)] p-3 text-left shadow-[var(--shadow-elevated)] md:block ${
                         showTooltipBelow ? 'top-full mt-2.5' : 'bottom-full mb-2.5'
                       }`}
                     >
@@ -414,7 +419,7 @@ export function InteractiveFloorMap({
 
         {/* Bottom-left Live Inspector Card (ideal for mobile taps & quick confirmation) */}
         {activeInspectorEntry && (
-          <div className="absolute right-3 bottom-3 left-3 z-20 sm:right-auto sm:bottom-4 sm:left-4 sm:w-80">
+          <div className="px-3 pb-3 md:absolute md:bottom-4 md:left-4 md:z-20 md:w-80 md:p-0">
             {(() => {
               const { table, sector } = activeInspectorEntry;
               const isSelected = selectedTableIds.has(table.id);
@@ -448,7 +453,7 @@ export function InteractiveFloorMap({
                         setHoveredTableId(null);
                       }}
                       aria-label="Fechar detalhes da mesa"
-                      className="cursor-pointer rounded-full p-1 text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+                      className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] md:size-6"
                     >
                       <X className="h-4 w-4" />
                     </button>
@@ -475,7 +480,7 @@ export function InteractiveFloorMap({
                     <button
                       type="button"
                       onClick={() => onToggleTable(table, sector)}
-                      className={`mt-3 w-full cursor-pointer rounded-full px-4 py-2 text-xs font-semibold transition-colors ${
+                      className={`mt-3 min-h-11 w-full cursor-pointer rounded-full px-4 py-2 text-xs font-semibold transition-colors md:min-h-0 ${
                         isSelected
                           ? 'border border-[var(--border-strong)] bg-[var(--bg-elevated)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'
                           : 'bg-[var(--cta-bg)] text-[var(--cta-text)] hover:bg-[var(--cta-hover)]'
@@ -493,14 +498,14 @@ export function InteractiveFloorMap({
 
       {/* Fallback tray for tables without (x, y) coordinates */}
       {unpositionedTables.length > 0 && (
-        <div className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 sm:p-5">
+        <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3 md:rounded-3xl md:p-5">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <div>
               <h3 className="font-display text-sm font-bold text-[var(--text-primary)]">
                 Mesas sem posição definida na planta
               </h3>
               <p className="text-xs text-[var(--text-muted)]">
-                Selecione diretamente por aqui caso prefira.
+                Escolha uma mesa abaixo.
               </p>
             </div>
             <span className="rounded-full bg-[var(--bg-elevated)] px-2.5 py-1 text-[11px] font-medium text-[var(--text-secondary)]">
@@ -524,8 +529,9 @@ export function InteractiveFloorMap({
                   key={table.id}
                   type="button"
                   disabled={!selectable}
+                  aria-pressed={isSelected}
                   onClick={() => onToggleTable(table, sector)}
-                  className={`inline-flex cursor-pointer items-center gap-2 rounded-2xl border px-3 py-2 text-xs font-medium transition-all disabled:cursor-not-allowed disabled:opacity-55 ${meta.badgeClass}`}
+                  className={`inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-2xl border px-3 py-2 text-xs font-medium transition-all disabled:cursor-not-allowed disabled:opacity-55 md:min-h-0 ${meta.badgeClass}`}
                 >
                   <span className="font-bold">{table.label}</span>
                   <span className="opacity-75">· {sector.name}</span>
