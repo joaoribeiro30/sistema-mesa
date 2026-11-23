@@ -32,6 +32,7 @@ import {
   isValidHttpsImageUrl,
   minorToEditablePrice,
 } from '@/components/admin/adminUtils';
+import { TableMapMarker } from '@/components/event/TableMapMarker';
 import { useAuthenticatedImageUrl } from '@/hooks/useAuthenticatedImageUrl';
 import { adminApi } from '@/lib/api';
 import { EVENT_IMAGE_ACCEPT, IMAGE_SIZE_LABEL, validateImageFile } from '@/lib/eventImages';
@@ -882,8 +883,8 @@ export function VisualMapEditor({
                                 : 'z-10'
                         }`}
                       >
-                        <button
-                          type="button"
+                        <TableMapMarker
+                          label={table.label}
                           onPointerDown={(e) =>
                             handleMarkerPointerDown(e, table.id)
                           }
@@ -894,30 +895,26 @@ export function VisualMapEditor({
                             e.stopPropagation();
                             setSelectedTableId(table.id);
                           }}
-                          style={{ touchAction: 'none' }}
                           title={`Mesa ${table.label} (${sector.name}) · X ${coord.x.toFixed(1)}%, Y ${coord.y.toFixed(1)}%`}
-                          className={`relative flex h-9 min-w-9 items-center justify-center rounded-full border-2 px-2 text-[11px] font-bold shadow-sm transition-transform select-none sm:h-10 sm:min-w-10 ${
-                            isDragging
-                              ? 'scale-115 cursor-grabbing'
-                              : 'cursor-grab hover:scale-105'
-                          } ${
+                          aria-pressed={isSelected}
+                          className={`touch-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+                          markerClassName={`shadow-sm ${
                             table.isEnabled
                               ? `${color.bg} ${color.border}`
                               : 'border-slate-500 bg-slate-200 text-slate-700 line-through'
                           } ${
                             isSelected || isDragging
-                              ? 'ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-[var(--bg-surface)]'
+                              ? 'ring-1 ring-[var(--accent)] ring-offset-1 ring-offset-[var(--bg-surface)]'
                               : ''
                           }`}
                         >
-                          <span>{table.label}</span>
                           {isDirty && (
                             <span
                               title="Posição alterada (não salva)"
-                              className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full border border-[var(--bg-surface)] bg-[var(--warning)]"
+                              className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full border border-[var(--bg-surface)] bg-[var(--warning)]"
                             />
                           )}
-                        </button>
+                        </TableMapMarker>
 
                         {/* Live coordinates pill while dragging */}
                         {isDragging && (

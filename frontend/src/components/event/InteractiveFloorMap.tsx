@@ -7,9 +7,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react';
 import {
-  Check,
   Clock,
-  Lock,
   Maximize2,
   Minus,
   Move,
@@ -17,6 +15,7 @@ import {
   Users,
   X,
 } from 'lucide-react';
+import { TableMapMarker } from '@/components/event/TableMapMarker';
 import {
   formatExpiryTime,
   getVisualTableState,
@@ -317,8 +316,10 @@ export function InteractiveFloorMap({
                   style={{
                     left: `${leftPct}%`,
                     top: `${topPct}%`,
+                    // Zoom spreads positions apart while keeping markers and touch targets the same size.
+                    scale: 1 / scale,
                   }}
-                  className={`absolute -translate-x-1/2 -translate-y-1/2 transition-opacity duration-200 ${
+                  className={`absolute -translate-x-1/2 -translate-y-1/2 transition-[opacity,scale] duration-75 ease-out ${
                     isDimmed
                       ? 'pointer-events-none z-0 opacity-20'
                       : isHovered || isSelected
@@ -326,8 +327,9 @@ export function InteractiveFloorMap({
                         : 'z-10'
                   }`}
                 >
-                  <button
-                    type="button"
+                  <TableMapMarker
+                    label={table.label}
+                    markerClassName={meta.markerClass}
                     onMouseEnter={() => setHoveredTableId(table.id)}
                     onMouseLeave={() =>
                       setHoveredTableId((prev) =>
@@ -349,22 +351,8 @@ export function InteractiveFloorMap({
                     }}
                     aria-label={`Mesa ${table.label}, setor ${sector.name}, ${table.capacity} lugares, ${formatMinorCurrency(table.priceMinor, currency)}, ${meta.label}`}
                     aria-pressed={isSelected}
-                    className={`group relative flex h-11 min-w-11 cursor-pointer items-center justify-center rounded-full border-2 px-2 text-[11px] font-bold tracking-tight transition-all duration-150 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--text-primary)] md:h-10 md:min-w-10 ${meta.markerClass}`}
-                  >
-                    {isSelected ? (
-                      <span className="inline-flex items-center gap-0.5">
-                        <Check className="h-3 w-3 stroke-[3]" />
-                        <span>{table.label}</span>
-                      </span>
-                    ) : visualState === 'RESERVED' ? (
-                      <span className="inline-flex items-center gap-0.5">
-                        <Lock className="h-2.5 w-2.5" />
-                        <span>{table.label}</span>
-                      </span>
-                    ) : (
-                      <span>{table.label}</span>
-                    )}
-                  </button>
+                    className="cursor-pointer"
+                  />
 
                   {/* Compact desktop hover popover */}
                   {isHovered && (

@@ -29,7 +29,7 @@ export const TABLE_STATUS_META: Record<
     badgeClass:
       'border-emerald-500/35 bg-emerald-500/12 text-emerald-700',
     markerClass:
-      'border-emerald-600 bg-emerald-100 text-emerald-950 hover:scale-110 hover:bg-emerald-200',
+      'border-emerald-600 bg-emerald-100 text-emerald-950 group-hover:bg-emerald-200',
   },
   SELECTED: {
     label: 'Selecionada',
@@ -38,7 +38,7 @@ export const TABLE_STATUS_META: Record<
     badgeClass:
       'border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent)]',
     markerClass:
-      'scale-115 border-white bg-[var(--accent)] text-white ring-2 ring-[var(--accent)]',
+      'border-white bg-[var(--accent)] text-white ring-1 ring-[var(--accent)]',
   },
   RESERVED: {
     label: 'Pendente / Reservada',
@@ -47,7 +47,7 @@ export const TABLE_STATUS_META: Record<
     badgeClass:
       'border-amber-500/35 bg-amber-500/12 text-amber-700',
     markerClass:
-      'border-amber-600 bg-amber-100 text-amber-950',
+      'border-dashed border-amber-600 bg-amber-100 text-amber-950',
   },
   SOLD: {
     label: 'Vendida',
