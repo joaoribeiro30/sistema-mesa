@@ -27,27 +27,27 @@ export const TABLE_STATUS_META: Record<
     shortLabel: 'Disponível',
     dotClass: 'bg-emerald-500',
     badgeClass:
-      'border-emerald-500/35 bg-emerald-500/12 text-emerald-500 dark:text-emerald-400',
+      'border-emerald-500/35 bg-emerald-500/12 text-emerald-700',
     markerClass:
-      'border-emerald-400 bg-emerald-500/90 text-white shadow-[0_0_0_3px_rgba(16,185,129,0.22)] hover:scale-110 hover:bg-emerald-400',
+      'border-emerald-600 bg-emerald-100 text-emerald-950 hover:scale-110 hover:bg-emerald-200',
   },
   SELECTED: {
     label: 'Selecionada',
     shortLabel: 'Selecionada',
-    dotClass: 'bg-[#ff3366]',
+    dotClass: 'bg-[var(--accent)]',
     badgeClass:
-      'border-[#ff3366]/45 bg-[#ff3366]/15 text-[#ff3366] dark:text-[#ff5c85]',
+      'border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent)]',
     markerClass:
-      'border-white bg-[#ff3366] text-white scale-115 shadow-[0_0_0_4px_rgba(255,51,102,0.38)] ring-2 ring-[#ff3366]/60',
+      'scale-115 border-white bg-[var(--accent)] text-white ring-2 ring-[var(--accent)]',
   },
   RESERVED: {
     label: 'Pendente / Reservada',
     shortLabel: 'Reservada',
     dotClass: 'bg-amber-500',
     badgeClass:
-      'border-amber-500/35 bg-amber-500/12 text-amber-600 dark:text-amber-400',
+      'border-amber-500/35 bg-amber-500/12 text-amber-700',
     markerClass:
-      'border-amber-300/80 bg-amber-500/85 text-[#140e02] shadow-[0_0_0_3px_rgba(245,158,11,0.2)]',
+      'border-amber-600 bg-amber-100 text-amber-950',
   },
   SOLD: {
     label: 'Vendida',
@@ -56,7 +56,7 @@ export const TABLE_STATUS_META: Record<
     badgeClass:
       'border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-muted)]',
     markerClass:
-      'border-zinc-500/60 bg-zinc-700/80 text-zinc-300 opacity-75',
+      'border-zinc-500 bg-zinc-200 text-zinc-800',
   },
 };
 

@@ -110,7 +110,7 @@ export function SectorTableList({
                       key={table.id}
                       className={`group flex flex-col justify-between gap-3 rounded-2xl border p-4 transition-all ${
                         isSelected
-                          ? 'border-[#ff3366]/60 bg-[#ff3366]/[0.07] shadow-[0_0_0_1px_rgba(255,51,102,0.2)]'
+                          ? 'border-[var(--accent)] bg-[var(--accent-soft)]'
                           : selectable
                             ? 'border-[var(--border-subtle)] bg-[var(--bg-elevated)]/40 hover:border-[var(--border-strong)] hover:bg-[var(--bg-elevated)]'
                             : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)]/20 opacity-75'
@@ -142,7 +142,7 @@ export function SectorTableList({
                       </div>
 
                       {visualState === 'RESERVED' && expiry && (
-                        <p className="flex items-center gap-1.5 text-[11px] text-amber-500 dark:text-amber-400">
+                        <p className="flex items-center gap-1.5 text-[11px] text-amber-700">
                           <Clock className="h-3 w-3 shrink-0" />
                           Bloqueio ativo até {expiry}
                         </p>
@@ -160,7 +160,7 @@ export function SectorTableList({
                             aria-pressed={isSelected}
                             className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all active:scale-[0.98] ${
                               isSelected
-                                ? 'bg-[#ff3366] text-white hover:bg-[#e11d48]'
+                                ? 'bg-[var(--accent)] text-white hover:bg-rose-800'
                                 : 'bg-[var(--cta-bg)] text-[var(--cta-text)] hover:bg-[var(--cta-hover)]'
                             }`}
                           >

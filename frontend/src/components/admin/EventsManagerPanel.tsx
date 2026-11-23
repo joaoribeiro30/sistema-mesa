@@ -62,7 +62,7 @@ function EventThumb({
   }
   return (
     <div
-      className="flex h-14 w-20 shrink-0 items-center justify-center rounded-2xl border border-[var(--border-subtle)] text-xs font-bold text-white/85"
+      className="flex h-14 w-20 shrink-0 items-center justify-center rounded-2xl border border-[var(--border-subtle)] text-xs font-bold text-[var(--text-primary)]"
       style={{ background: getEventFallbackGradient(event.slug || event.id) }}
     >
       {event.title.slice(0, 2).toUpperCase()}

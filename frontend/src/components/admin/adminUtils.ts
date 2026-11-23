@@ -17,19 +17,19 @@ export const EVENT_STATUS_META: Record<
   DRAFT: {
     label: 'Rascunho',
     pillClass:
-      'border-amber-500/35 bg-amber-500/12 text-amber-500 dark:text-amber-400',
+      'border-amber-500/35 bg-amber-500/12 text-amber-700',
     dotClass: 'bg-amber-500',
   },
   PUBLISHED: {
     label: 'Publicado',
     pillClass:
-      'border-emerald-500/35 bg-emerald-500/12 text-emerald-600 dark:text-emerald-400',
+      'border-emerald-500/35 bg-emerald-500/12 text-emerald-700',
     dotClass: 'bg-emerald-500',
   },
   CLOSED: {
     label: 'Encerrado',
     pillClass:
-      'border-slate-500/35 bg-slate-500/12 text-slate-600 dark:text-slate-300',
+      'border-slate-500/35 bg-slate-500/12 text-slate-600',
     dotClass: 'bg-slate-400',
   },
 };
@@ -56,67 +56,67 @@ export const RESERVATION_STATUS_META: Record<
   CONFIRMED: {
     label: 'Confirmada',
     pillClass:
-      'border-emerald-500/35 bg-emerald-500/12 text-emerald-600 dark:text-emerald-400',
+      'border-emerald-500/35 bg-emerald-500/12 text-emerald-700',
   },
   PENDING_PAYMENT: {
     label: 'Aguardando Pagto',
     pillClass:
-      'border-amber-500/35 bg-amber-500/12 text-amber-600 dark:text-amber-400',
+      'border-amber-500/35 bg-amber-500/12 text-amber-700',
   },
   EXPIRED: {
     label: 'Expirada',
     pillClass:
-      'border-slate-500/30 bg-slate-500/10 text-slate-500 dark:text-slate-400',
+      'border-slate-500/30 bg-slate-500/10 text-slate-600',
   },
   CANCELLED: {
     label: 'Cancelada',
     pillClass:
-      'border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400',
+      'border-red-500/30 bg-red-500/10 text-red-700',
   },
 };
 
 export const SECTOR_COLOR_PALETTE = [
   {
-    bg: 'bg-rose-500',
-    border: 'border-rose-300',
+    bg: 'bg-rose-100',
+    border: 'border-rose-600',
     ring: 'ring-rose-500/40',
     dot: 'bg-rose-500',
-    chip: 'border-rose-500/35 bg-rose-500/12 text-rose-500 dark:text-rose-300',
+    chip: 'border-rose-500/35 bg-rose-500/12 text-rose-700',
   },
   {
-    bg: 'bg-sky-500',
-    border: 'border-sky-300',
+    bg: 'bg-sky-100',
+    border: 'border-sky-600',
     ring: 'ring-sky-500/40',
     dot: 'bg-sky-500',
-    chip: 'border-sky-500/35 bg-sky-500/12 text-sky-600 dark:text-sky-300',
+    chip: 'border-sky-500/35 bg-sky-500/12 text-sky-700',
   },
   {
-    bg: 'bg-emerald-500',
-    border: 'border-emerald-300',
+    bg: 'bg-emerald-100',
+    border: 'border-emerald-600',
     ring: 'ring-emerald-500/40',
     dot: 'bg-emerald-500',
-    chip: 'border-emerald-500/35 bg-emerald-500/12 text-emerald-600 dark:text-emerald-300',
+    chip: 'border-emerald-500/35 bg-emerald-500/12 text-emerald-700',
   },
   {
-    bg: 'bg-violet-500',
-    border: 'border-violet-300',
+    bg: 'bg-violet-100',
+    border: 'border-violet-600',
     ring: 'ring-violet-500/40',
     dot: 'bg-violet-500',
-    chip: 'border-violet-500/35 bg-violet-500/12 text-violet-600 dark:text-violet-300',
+    chip: 'border-violet-500/35 bg-violet-500/12 text-violet-700',
   },
   {
-    bg: 'bg-amber-500',
-    border: 'border-amber-200',
+    bg: 'bg-amber-100',
+    border: 'border-amber-600',
     ring: 'ring-amber-500/40',
     dot: 'bg-amber-500',
-    chip: 'border-amber-500/35 bg-amber-500/12 text-amber-600 dark:text-amber-300',
+    chip: 'border-amber-500/35 bg-amber-500/12 text-amber-700',
   },
   {
-    bg: 'bg-cyan-500',
-    border: 'border-cyan-200',
+    bg: 'bg-cyan-100',
+    border: 'border-cyan-600',
     ring: 'ring-cyan-500/40',
     dot: 'bg-cyan-500',
-    chip: 'border-cyan-500/35 bg-cyan-500/12 text-cyan-600 dark:text-cyan-300',
+    chip: 'border-cyan-500/35 bg-cyan-500/12 text-cyan-700',
   },
 ] as const;
 
@@ -277,28 +277,28 @@ export const SETTLEMENT_OPERATION_META: Record<
     label: 'Pix',
     rateLabel: '1,20%',
     pillClass:
-      'border-emerald-500/35 bg-emerald-500/12 text-emerald-600 dark:text-emerald-400',
+      'border-emerald-500/35 bg-emerald-500/12 text-emerald-700',
   },
   DEBIT: {
     shortLabel: 'DÉB',
     label: 'Débito',
     rateLabel: '1,20%',
     pillClass:
-      'border-sky-500/35 bg-sky-500/12 text-sky-600 dark:text-sky-400',
+      'border-sky-500/35 bg-sky-500/12 text-sky-700',
   },
   CREDIT: {
     shortLabel: 'CRÉD',
     label: 'Crédito sem antecipação',
     rateLabel: '2,99%',
     pillClass:
-      'border-violet-500/35 bg-violet-500/12 text-violet-600 dark:text-violet-300',
+      'border-violet-500/35 bg-violet-500/12 text-violet-700',
   },
   ANTICIPATED_CREDIT: {
     shortLabel: 'ANTEC',
     label: 'Crédito com antecipação',
     rateLabel: '4,99%',
     pillClass:
-      'border-amber-500/35 bg-amber-500/12 text-amber-600 dark:text-amber-400',
+      'border-amber-500/35 bg-amber-500/12 text-amber-700',
   },
 };
 

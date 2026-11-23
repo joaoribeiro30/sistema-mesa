@@ -10,17 +10,14 @@ import {
   Calendar,
   LogOut,
   Menu,
-  Moon,
   Search,
   Shield,
-  Sun,
   Ticket,
   User as UserIcon,
   X,
 } from 'lucide-react';
 import { BrandLogo } from '@/components/ui/BrandLogo';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTheme } from '@/contexts/ThemeContext';
 
 function parseBrazilDateToInput(raw: string): string | null {
   const trimmed = raw.trim();
@@ -39,7 +36,6 @@ function parseBrazilDateToInput(raw: string): string | null {
 
 export function Header() {
   const { user, isAuthenticated, isAdmin, logout } = useAuth();
-  const { isDark, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -229,8 +225,7 @@ export function Header() {
                 setDateFilter(next);
                 applyQuickSearch(query, next);
               }}
-              className="w-[110px] cursor-pointer bg-transparent text-xs text-[var(--text-secondary)] focus:outline-none [color-scheme:dark] data-[light=true]:[color-scheme:light]"
-              data-light={!isDark}
+              className="w-[110px] cursor-pointer bg-transparent text-xs text-[var(--text-secondary)] focus:outline-none"
             />
           </label>
 
@@ -275,16 +270,6 @@ export function Header() {
               Painel Admin
             </NavLink>
           )}
-
-          <button
-            type="button"
-            onClick={toggleTheme}
-            aria-label={isDark ? 'Mudar para tema claro' : 'Mudar para tema escuro'}
-            title={isDark ? 'Tema claro' : 'Tema escuro'}
-            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
-          >
-            {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          </button>
 
           {isAuthenticated && user ? (
             <div className="relative" ref={userMenuRef}>
@@ -484,8 +469,7 @@ export function Header() {
                 aria-label="Data do evento"
                 value={dateFilter}
                 onChange={(e) => setDateFilter(e.target.value)}
-                className="min-w-0 flex-1 bg-transparent text-xs text-[var(--text-primary)] focus:outline-none [color-scheme:dark] data-[light=true]:[color-scheme:light]"
-                data-light={!isDark}
+                className="min-w-0 flex-1 bg-transparent text-xs text-[var(--text-primary)] focus:outline-none"
               />
             </label>
           </form>
@@ -549,24 +533,6 @@ export function Header() {
                 </Link>
               )}
 
-              {/* Theme Switcher inside drawer */}
-              <button
-                type="button"
-                onClick={toggleTheme}
-                className="flex w-full cursor-pointer items-center justify-between rounded-2xl px-3.5 py-2.5 text-left text-sm font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-elevated)]"
-              >
-                <span className="flex items-center gap-2.5">
-                  {isDark ? (
-                    <Sun className="h-4 w-4 text-[var(--text-secondary)]" />
-                  ) : (
-                    <Moon className="h-4 w-4 text-[var(--text-secondary)]" />
-                  )}
-                  Aparência
-                </span>
-                <span className="rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--text-secondary)]">
-                  {isDark ? 'Tema escuro' : 'Tema claro'}
-                </span>
-              </button>
             </nav>
 
             {/* Auth Actions */}

@@ -186,11 +186,11 @@ export function getDatePresetBounds(preset: DatePreset): {
 }
 
 const FALLBACK_GRADIENTS = [
-  'linear-gradient(135deg, #1b0f26 0%, #3b1334 45%, #ff3366 100%)',
-  'linear-gradient(135deg, #0b1623 0%, #152b47 50%, #3b82f6 100%)',
-  'linear-gradient(135deg, #14141c 0%, #2b1d3d 48%, #8b5cf6 100%)',
-  'linear-gradient(135deg, #0e1c1a 0%, #134e4a 52%, #10b981 100%)',
-  'linear-gradient(135deg, #1f130d 0%, #4c1d1b 50%, #f97316 100%)',
+  'linear-gradient(135deg, #fff1f2, #fecdd3)',
+  'linear-gradient(135deg, #eff6ff, #bfdbfe)',
+  'linear-gradient(135deg, #f5f3ff, #ddd6fe)',
+  'linear-gradient(135deg, #ecfdf5, #a7f3d0)',
+  'linear-gradient(135deg, #fff7ed, #fed7aa)',
 ];
 
 export function getEventFallbackGradient(seed: string): string {

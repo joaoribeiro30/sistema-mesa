@@ -121,7 +121,7 @@ export function TicketModal({ reservationId, onClose }: TicketModalProps) {
 
   return (
     <div
-      className="animate-fade-in fixed inset-0 z-[70] flex items-center justify-center overflow-y-auto bg-black/80 p-4 backdrop-blur-sm"
+      className="animate-fade-in fixed inset-0 z-[70] flex items-center justify-center overflow-y-auto bg-[var(--modal-backdrop)] p-4 backdrop-blur-sm print:bg-transparent"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -164,20 +164,15 @@ export function TicketModal({ reservationId, onClose }: TicketModalProps) {
         ) : (
           <article className="overflow-hidden rounded-3xl bg-[var(--bg-surface)] shadow-[var(--shadow-elevated)] ring-1 ring-[var(--border-strong)]">
             {/* Ticket header */}
-            <header
-              className="relative px-6 pt-6 pb-5 text-white"
-              style={{
-                background: 'linear-gradient(135deg, #1b0f26 0%, #3b1334 50%, #ff3366 130%)',
-              }}
-            >
+            <header className="relative border-b border-[var(--border-subtle)] bg-[var(--accent-soft)] px-6 pt-6 pb-5">
               <div className="flex items-center justify-between">
-                <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold tracking-[0.2em] uppercase opacity-80">
+                <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold tracking-[0.2em] text-[var(--accent)] uppercase">
                   <Ticket className="h-3.5 w-3.5" />
                   Ingresso digital
                 </span>
                 <span
                   className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold ${
-                    checkedIn ? 'bg-white/20 text-white' : 'bg-emerald-400/90 text-emerald-950'
+                    checkedIn ? 'bg-[var(--bg-surface)] text-[var(--text-secondary)]' : 'bg-emerald-100 text-emerald-800'
                   }`}
                 >
                   {checkedIn ? <ScanLine className="h-3 w-3" /> : <BadgeCheck className="h-3 w-3" />}
@@ -187,7 +182,7 @@ export function TicketModal({ reservationId, onClose }: TicketModalProps) {
               <h2 id="ticket-title" className="font-display mt-3 text-2xl leading-tight font-bold">
                 {receipt.event.title}
               </h2>
-              <div className="mt-2 space-y-1 text-xs text-white/85">
+              <div className="mt-2 space-y-1 text-xs text-[var(--text-secondary)]">
                 <p className="inline-flex items-center gap-1.5">
                   <Calendar className="h-3.5 w-3.5" />
                   {formatEventDateLine(receipt.event.startsAt)}
@@ -226,11 +221,7 @@ export function TicketModal({ reservationId, onClose }: TicketModalProps) {
             </div>
 
             {/* Perforation */}
-            <div className="relative my-5 flex items-center" aria-hidden="true">
-              <span className="absolute -left-3 h-6 w-6 rounded-full bg-black/80" />
-              <span className="mx-5 w-full border-t-2 border-dashed border-[var(--border-strong)]" />
-              <span className="absolute -right-3 h-6 w-6 rounded-full bg-black/80" />
-            </div>
+            <div className="mx-5 my-5 border-t-2 border-dashed border-[var(--border-strong)]" aria-hidden="true" />
 
             {/* Details */}
             <dl className="grid grid-cols-2 gap-x-4 gap-y-3.5 px-6 text-xs">
@@ -272,7 +263,7 @@ export function TicketModal({ reservationId, onClose }: TicketModalProps) {
                   className={`mt-1 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
                     checkedIn
                       ? 'border-[var(--border-strong)] bg-[var(--bg-elevated)] text-[var(--text-secondary)]'
-                      : 'border-emerald-500/35 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                      : 'border-emerald-500/35 bg-emerald-500/10 text-emerald-700'
                   }`}
                 >
                   {checkedIn ? <ScanLine className="h-3.5 w-3.5" /> : <BadgeCheck className="h-3.5 w-3.5" />}

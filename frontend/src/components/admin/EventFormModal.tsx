@@ -484,7 +484,7 @@ export function EventFormModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="event-form-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3 backdrop-blur-sm sm:p-6"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--modal-backdrop)] p-3 backdrop-blur-sm sm:p-6"
     >
       <div className="animate-pop-in flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-[var(--shadow-elevated)]">
         {/* Header */}

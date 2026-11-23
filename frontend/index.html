@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="pt-BR" class="dark" data-theme="dark">
+<html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="dark light" />
+    <meta name="color-scheme" content="only light" />
     <title>MESA — Eventos & Reservas</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -11,18 +11,8 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap"
       rel="stylesheet"
     />
-    <script>
-      (function () {
-        try {
-          var stored = localStorage.getItem('mesa-theme');
-          var theme = stored === 'light' ? 'light' : 'dark';
-          document.documentElement.classList.toggle('dark', theme === 'dark');
-          document.documentElement.setAttribute('data-theme', theme);
-        } catch (e) {}
-      })();
-    </script>
   </head>
-  <body class="antialiased selection:bg-[#ff3366]/30 selection:text-white">
+  <body class="antialiased">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

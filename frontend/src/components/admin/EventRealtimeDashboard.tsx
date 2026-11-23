@@ -232,8 +232,8 @@ export function EventRealtimeDashboard({
             <span
               className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-semibold ${
                 streamStatus === 'live'
-                  ? 'border-emerald-500/35 bg-emerald-500/12 text-emerald-600 dark:text-emerald-400'
-                  : 'border-amber-500/35 bg-amber-500/12 text-amber-600 dark:text-amber-400'
+                  ? 'border-emerald-500/35 bg-emerald-500/12 text-emerald-700'
+                  : 'border-amber-500/35 bg-amber-500/12 text-amber-700'
               }`}
             >
               <Radio
@@ -492,14 +492,14 @@ export function EventRealtimeDashboard({
 
               {/* Producer Net Amount */}
               <div className="rounded-2xl border border-emerald-500/35 bg-emerald-500/10 p-4">
-                <div className="flex items-center justify-between text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
+                <div className="flex items-center justify-between text-[11px] font-semibold text-emerald-700">
                   <span>Valor Líquido do Produtor</span>
-                  <Wallet className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  <Wallet className="h-4 w-4 text-emerald-700" />
                 </div>
-                <p className="font-display font-mono-num mt-2 text-2xl font-bold text-emerald-700 dark:text-emerald-300">
+                <p className="font-display font-mono-num mt-2 text-2xl font-bold text-emerald-700">
                   {formatMinorStringCurrency(settlement.totals.netMinor, currency)}
                 </p>
-                <p className="mt-1.5 text-[11px] text-emerald-700/80 dark:text-emerald-300/80">
+                <p className="mt-1.5 text-[11px] text-emerald-700/80">
                   Bruto deduzidas a taxa de serviço (15%) e o processamento
                 </p>
               </div>
@@ -507,7 +507,7 @@ export function EventRealtimeDashboard({
 
             {/* Unclassified legacy payments notice if applicable */}
             {settlement.unclassifiedPaymentCount > 0 && (
-              <div className="flex items-start gap-2.5 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-700 dark:text-amber-300">
+              <div className="flex items-start gap-2.5 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-700">
                 <Info className="mt-0.5 h-4 w-4 shrink-0" />
                 <span>
                   Há{' '}
@@ -590,7 +590,7 @@ export function EventRealtimeDashboard({
                         </div>
                         <div className="flex items-center justify-between gap-2">
                           <dt className="text-[var(--text-muted)]">Líquido</dt>
-                          <dd className="font-mono-num font-semibold text-emerald-600 dark:text-emerald-400">
+                          <dd className="font-mono-num font-semibold text-emerald-700">
                             {formatMinorStringCurrency(net, currency)}
                           </dd>
                         </div>
@@ -840,7 +840,7 @@ export function EventRealtimeDashboard({
                       </td>
                       <td className="px-4 py-3.5">
                         {res.checkedInAt ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/12 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/12 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
                             <CheckCircle2 className="h-3 w-3" />
                             {formatShortTime(res.checkedInAt)}
                           </span>

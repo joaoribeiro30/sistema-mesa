@@ -41,39 +41,36 @@ export function EventCard({ event }: EventCardProps) {
             className="flex h-full w-full items-end p-2.5 md:p-4"
             style={{ background: fallbackGradient }}
           >
-            <span className="font-display line-clamp-2 text-xs font-bold tracking-tight text-white/35 uppercase md:text-2xl md:text-white/25">
+            <span aria-hidden="true" className="font-display line-clamp-2 text-xs font-bold tracking-tight text-[var(--text-secondary)] uppercase md:text-2xl">
               {event.title.slice(0, 14)}
             </span>
           </div>
         )}
 
-        {/* Desktop-only cover overlays */}
-        <div className="pointer-events-none absolute inset-0 hidden bg-gradient-to-t from-black/70 via-black/15 to-transparent md:block" />
-
         {/* Date pill (desktop) */}
-        <div className="absolute top-3 left-3 hidden flex-col items-center rounded-2xl border border-white/15 bg-black/65 px-3 py-1.5 text-center leading-none text-white backdrop-blur-md md:flex">
-          <span className="text-[9px] font-semibold tracking-wider text-[#ff5c85] uppercase">
+        <div className="absolute top-3 left-3 hidden flex-col items-center rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-1.5 text-center leading-none shadow-sm md:flex">
+          <span className="text-[9px] font-semibold tracking-wider text-[var(--accent)] uppercase">
             {badge.month}
           </span>
           <span className="font-display mt-0.5 text-lg font-bold">{badge.day}</span>
-          <span className="mt-0.5 text-[9px] font-medium text-white/70">
+          <span className="mt-0.5 text-[9px] font-medium text-[var(--text-secondary)]">
             {badge.weekday}
           </span>
         </div>
 
         {/* Category pill (desktop) */}
         {event.category && (
-          <span className="absolute top-3 right-3 hidden rounded-full border border-white/15 bg-black/55 px-3 py-1 text-[11px] font-medium text-white/95 backdrop-blur-md md:inline-flex">
+          <span className="absolute top-3 right-3 hidden max-w-[calc(100%_-_5.5rem)] truncate rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-1 text-[11px] font-medium text-[var(--text-secondary)] shadow-sm md:block">
             {event.category}
           </span>
         )}
 
         {/* Display mode tag (desktop) */}
-        <span className="absolute bottom-3 left-3 hidden items-center gap-1.5 rounded-full border border-white/10 bg-black/55 px-2.5 py-1 text-[10px] font-medium text-white/85 backdrop-blur-md md:inline-flex">
+        <span className="absolute bottom-3 left-3 hidden items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2.5 py-1 text-[10px] font-medium text-[var(--text-secondary)] shadow-sm md:inline-flex">
           {event.displayMode === 'LIST' ? (
-            <LayoutGrid className="h-3 w-3 text-[#ff5c85]" />
+            <LayoutGrid className="h-3 w-3 text-[var(--accent)]" />
           ) : (
-            <Map className="h-3 w-3 text-[#ff5c85]" />
+            <Map className="h-3 w-3 text-[var(--accent)]" />
           )}
           {DISPLAY_MODE_LABEL[event.displayMode]}
         </span>
@@ -113,17 +110,17 @@ export function EventCard({ event }: EventCardProps) {
         </div>
       </div>
 
-      {/* Mobile-only right high-contrast date & time block */}
-      <div className="flex w-[78px] shrink-0 flex-col items-center justify-center gap-1.5 bg-[var(--cta-bg)] px-2 py-2.5 text-center text-[var(--cta-text)] md:hidden">
+      {/* Mobile date and time */}
+      <div className="flex w-[78px] shrink-0 flex-col items-center justify-center gap-1.5 border-l border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-2 py-2.5 text-center text-[var(--text-primary)] md:hidden">
         <div className="flex flex-col items-center leading-none">
           <span className="font-display text-xl font-extrabold tracking-tight">
             {badge.day}
           </span>
-          <span className="mt-0.5 text-[10px] font-extrabold tracking-[0.14em] uppercase opacity-75">
+          <span className="mt-0.5 text-[10px] font-extrabold tracking-[0.14em] text-[var(--text-secondary)] uppercase">
             {badge.month}
           </span>
         </div>
-        <span className="font-mono-num rounded-md bg-[var(--accent)] px-1.5 py-0.5 text-[10px] leading-none font-bold tracking-wider text-white">
+        <span className="font-mono-num rounded-md bg-[var(--accent-soft)] px-1.5 py-0.5 text-[10px] leading-none font-bold tracking-wider text-[var(--accent)]">
           {badge.compactTime}
         </span>
       </div>

@@ -583,7 +583,7 @@ export function CheckoutDrawer({
 
   return (
     <div
-      className="animate-fade-in fixed inset-0 z-[60] flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-stretch sm:justify-end"
+      className="animate-fade-in fixed inset-0 z-[60] flex items-end justify-center bg-[var(--modal-backdrop)] backdrop-blur-sm sm:items-stretch sm:justify-end"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget && phase !== 'processing') onClose();
       }}
@@ -636,7 +636,7 @@ export function CheckoutDrawer({
                 className={`inline-flex items-center gap-2 text-xs font-medium ${
                   countdown.expired || urgent
                     ? 'text-[var(--danger)]'
-                    : 'text-amber-600 dark:text-amber-400'
+                    : 'text-amber-700'
                 }`}
               >
                 <Clock className="h-4 w-4 shrink-0" />
@@ -646,13 +646,13 @@ export function CheckoutDrawer({
                 className={`font-mono-num rounded-full px-3 py-1 text-base font-bold tabular-nums ${
                   countdown.expired || urgent
                     ? 'bg-[var(--danger)]/15 text-[var(--danger)]'
-                    : 'bg-amber-500/20 text-amber-600 dark:text-amber-300'
+                    : 'bg-amber-500/20 text-amber-700'
                 }`}
               >
                 {countdown.label}
               </span>
             </div>
-            <div className="mt-2 h-1 overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
+            <div className="mt-2 h-1 overflow-hidden rounded-full bg-[var(--bg-hover)]">
               <div
                 className={`h-full rounded-full transition-[width] duration-1000 ease-linear ${
                   urgent || countdown.expired ? 'bg-[var(--danger)]' : 'bg-amber-500'
@@ -759,7 +759,7 @@ export function CheckoutDrawer({
           {/* ---------------- REFUND REQUIRED ---------------- */}
           {phase === 'refund' && (
             <section className="animate-pop-in rounded-3xl border border-amber-500/35 bg-amber-500/10 p-6 text-center">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500/20 text-amber-600 dark:text-amber-400">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500/20 text-amber-700">
                 <AlertTriangle className="h-7 w-7" />
               </div>
               <h3 className="font-display mt-4 text-lg font-bold text-[var(--text-primary)]">
@@ -783,7 +783,7 @@ export function CheckoutDrawer({
           {/* ---------------- SUCCESS ---------------- */}
           {phase === 'success' && (
             <section className="animate-pop-in rounded-3xl border border-emerald-500/35 bg-emerald-500/10 p-6 text-center">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500 text-white shadow-[0_0_0_8px_rgba(16,185,129,0.18)]">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-[var(--success)] ring-8 ring-emerald-50">
                 <Check className="h-8 w-8" strokeWidth={3} />
               </div>
               <h3 className="font-display mt-5 text-xl font-bold text-[var(--text-primary)]">
@@ -862,7 +862,7 @@ export function CheckoutDrawer({
                       onClick={() => void handleCopyPix()}
                       className={`inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-xl px-3.5 text-xs font-semibold transition-colors ${
                         copied
-                          ? 'bg-emerald-500 text-white'
+                          ? 'bg-emerald-100 text-emerald-800'
                           : 'bg-[var(--cta-bg)] text-[var(--cta-text)] hover:bg-[var(--cta-hover)]'
                       }`}
                     >

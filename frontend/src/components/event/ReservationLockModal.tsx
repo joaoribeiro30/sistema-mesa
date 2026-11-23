@@ -93,7 +93,7 @@ export function ReservationLockModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="reservation-lock-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--modal-backdrop)] p-4 backdrop-blur-sm"
     >
       <div className="relative w-full max-w-lg overflow-hidden rounded-3xl border border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-[var(--shadow-elevated)]">
         {/* Header */}
@@ -128,11 +128,11 @@ export function ReservationLockModal({
         {/* Countdown banner */}
         {pending.length > 0 && countdown.label && (
           <div className="flex items-center justify-between gap-3 border-b border-[var(--border-subtle)] bg-amber-500/10 px-6 py-3">
-            <span className="inline-flex items-center gap-2 text-xs font-medium text-amber-600 dark:text-amber-400">
+            <span className="inline-flex items-center gap-2 text-xs font-medium text-amber-700">
               <Clock className="h-4 w-4 shrink-0" />
               Tempo restante para concluir o pagamento
             </span>
-            <span className="font-mono-num rounded-full bg-amber-500/20 px-3 py-1 text-sm font-bold text-amber-600 tabular-nums dark:text-amber-300">
+            <span className="font-mono-num rounded-full bg-amber-500/20 px-3 py-1 text-sm font-bold text-amber-700 tabular-nums">
               {countdown.label}
             </span>
           </div>
@@ -184,7 +184,7 @@ export function ReservationLockModal({
                       <button
                         type="button"
                         onClick={() => onViewTicket(reservation.id)}
-                        className="inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-emerald-500 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-emerald-600"
+                        className="inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-[var(--success)] px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-emerald-800"
                       >
                         <Ticket className="h-3.5 w-3.5" />
                         Ingresso

@@ -292,7 +292,7 @@ export function AdminDashboardPage() {
           role="status"
           className={`animate-fade-in flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-xs font-medium ${
             toast.type === 'success'
-              ? 'border-emerald-500/35 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300'
+              ? 'border-emerald-500/35 bg-emerald-500/12 text-emerald-700'
               : 'border-[var(--danger)]/40 bg-[var(--danger)]/10 text-[var(--danger)]'
           }`}
         >

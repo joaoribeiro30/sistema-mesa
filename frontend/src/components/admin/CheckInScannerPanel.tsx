@@ -474,14 +474,14 @@ export function CheckInScannerPanel({
 
           {/* Optional Camera Scanner Viewport */}
           {cameraError && (
-            <div className="mt-4 flex items-start gap-2.5 rounded-2xl border border-amber-500/35 bg-amber-500/10 p-3.5 text-xs text-amber-600 dark:text-amber-300">
+            <div className="mt-4 flex items-start gap-2.5 rounded-2xl border border-amber-500/35 bg-amber-500/10 p-3.5 text-xs text-amber-700">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
               <span>{cameraError}</span>
             </div>
           )}
 
           {cameraActive && (
-            <div className="relative mt-4 overflow-hidden rounded-2xl border border-[var(--border-strong)] bg-black">
+            <div className="relative mt-4 overflow-hidden rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-elevated)]">
               <video
                 ref={videoRef}
                 playsInline
@@ -492,9 +492,9 @@ export function CheckInScannerPanel({
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                 <div className="h-44 w-44 rounded-3xl border-2 border-[var(--accent)] shadow-[0_0_0_9999px_rgba(0,0,0,0.45)]" />
               </div>
-              <div className="pointer-events-none absolute right-3 bottom-3 left-3 flex items-center justify-between rounded-full bg-black/70 px-3.5 py-1.5 text-[11px] font-medium text-white backdrop-blur-md">
+              <div className="pointer-events-none absolute right-3 bottom-3 left-3 flex items-center justify-between rounded-full bg-[var(--bg-surface)] px-3.5 py-1.5 text-[11px] font-medium text-[var(--text-primary)]">
                 <span className="inline-flex items-center gap-1.5">
-                  <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-[var(--success)]" />
                   Enquadre o QR Code do ingresso
                 </span>
                 <span>Leitura automática</span>
@@ -516,24 +516,22 @@ export function CheckInScannerPanel({
             aria-live="assertive"
             className={`animate-pop-in rounded-3xl border-2 p-6 shadow-lg ${
               feedback.kind === 'success'
-                ? 'border-emerald-500/60 bg-emerald-500/12 text-emerald-700 dark:text-emerald-200'
+                ? 'border-emerald-500/60 bg-emerald-500/12 text-emerald-700'
                 : feedback.kind === 'already_used'
-                  ? 'border-amber-500/70 bg-amber-500/14 text-amber-800 dark:text-amber-200'
+                  ? 'border-amber-500/70 bg-amber-500/14 text-amber-800'
                   : feedback.kind === 'warning'
-                    ? 'border-amber-500/55 bg-amber-500/12 text-amber-800 dark:text-amber-200'
-                    : 'border-red-500/65 bg-red-500/12 text-red-700 dark:text-red-200'
+                    ? 'border-amber-500/55 bg-amber-500/12 text-amber-800'
+                    : 'border-red-500/65 bg-red-500/12 text-red-700'
             }`}
           >
             <div className="flex items-start gap-4">
               <div
                 className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${
                   feedback.kind === 'success'
-                    ? 'bg-emerald-500 text-white'
-                    : feedback.kind === 'already_used'
-                      ? 'bg-amber-500 text-white'
-                      : feedback.kind === 'warning'
-                        ? 'bg-amber-500 text-white'
-                        : 'bg-red-500 text-white'
+                    ? 'bg-emerald-200 text-emerald-900'
+                    : feedback.kind === 'already_used' || feedback.kind === 'warning'
+                      ? 'bg-amber-200 text-amber-900'
+                      : 'bg-red-200 text-red-900'
                 }`}
               >
                 {feedback.kind === 'success' ? (
@@ -552,7 +550,7 @@ export function CheckInScannerPanel({
                   <h3 className="font-display text-xl font-bold uppercase tracking-tight">
                     {feedback.title}
                   </h3>
-                  <span className="font-mono-num inline-flex items-center gap-1 rounded-full bg-black/10 px-2.5 py-0.5 text-[11px] font-semibold dark:bg-white/10">
+                  <span className="font-mono-num inline-flex items-center gap-1 rounded-full bg-[var(--bg-surface)] px-2.5 py-0.5 text-[11px] font-semibold">
                     <Clock className="h-3 w-3" />
                     {formatShortTime(feedback.timestamp)}
                   </span>

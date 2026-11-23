@@ -580,8 +580,8 @@ export function EventDetailPage() {
             <span
               className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-semibold ${
                 streamStatus === 'live'
-                  ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-500 dark:text-emerald-400'
-                  : 'border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                  ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700'
+                  : 'border-amber-500/30 bg-amber-500/10 text-amber-700'
               }`}
             >
               <span
@@ -631,61 +631,53 @@ export function EventDetailPage() {
       </div>
 
       {/* 1. Event Hero Banner & Key Metadata */}
-      <section className="relative overflow-hidden rounded-3xl border border-[var(--border-subtle)] bg-[#0b0b10] shadow-[var(--shadow-elevated)]">
-        <div className="relative min-h-[320px] w-full sm:min-h-[400px]">
-          {cover ? (
-            <img
-              src={cover}
-              alt={event.title}
-              className="absolute inset-0 h-full w-full object-cover"
-            />
-          ) : (
-            <div
-              className="absolute inset-0 h-full w-full"
-              style={{ background: getEventFallbackGradient(event.id) }}
-            />
-          )}
-          <div
-            className="absolute inset-0"
-            style={{
-              background:
-                'linear-gradient(180deg, rgba(8,8,10,0.2) 0%, rgba(8,8,10,0.55) 45%, rgba(8,8,10,0.95) 100%)',
-            }}
+      <section className="overflow-hidden rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-[var(--shadow-elevated)]">
+        {cover ? (
+          <img
+            src={cover}
+            alt=""
+            className="h-44 w-full border-b border-[var(--border-subtle)] object-cover sm:h-60 lg:h-72"
           />
+        ) : (
+          <div
+            aria-hidden="true"
+            className="h-14 border-b border-[var(--border-subtle)] sm:h-20"
+            style={{ background: getEventFallbackGradient(event.id) }}
+          />
+        )}
 
-          <div className="relative z-10 flex min-h-[320px] flex-col justify-end p-6 text-white sm:min-h-[400px] sm:p-9">
-            <div className="flex flex-wrap items-center gap-2">
-              {event.category && (
-                <span className="rounded-full border border-white/20 bg-white/10 px-3.5 py-1 text-[11px] font-semibold tracking-wide text-white backdrop-blur-md">
-                  {event.category}
-                </span>
-              )}
-              <span className="rounded-full border border-white/15 bg-black/45 px-3 py-1 text-[11px] font-medium text-white/85 backdrop-blur-md">
-                {stats.available} de {stats.total}{' '}
-                {stats.total === 1 ? 'mesa livre' : 'mesas livres'}
+        <div className="p-6 sm:p-9">
+          <div className="flex flex-wrap items-center gap-2">
+            {event.category && (
+              <span className="rounded-full bg-[var(--accent-soft)] px-3.5 py-1 text-[11px] font-semibold tracking-wide text-[var(--accent)]">
+                {event.category}
               </span>
-            </div>
+            )}
+            <span className="rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-3 py-1 text-[11px] font-medium text-[var(--text-secondary)]">
+              {stats.available} de {stats.total}{' '}
+              {stats.total === 1 ? 'mesa livre' : 'mesas livres'}
+            </span>
+          </div>
 
-            <h1 className="font-display mt-3 max-w-4xl text-3xl leading-[1.06] font-bold tracking-tight sm:text-5xl">
-              {event.title}
-            </h1>
+          <h1 className="font-display mt-3 max-w-4xl text-3xl leading-[1.06] font-bold tracking-tight sm:text-5xl">
+            {event.title}
+          </h1>
 
-            <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-white/85 sm:text-sm">
-              <span className="inline-flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-[#ff5c85]" />
-                {formatEventDateLine(event.startsAt, event.endsAt)}
+          <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-[var(--text-secondary)] sm:text-sm">
+            <span className="inline-flex items-center gap-2">
+              <Calendar className="h-4 w-4 shrink-0 text-[var(--accent)]" />
+              {formatEventDateLine(event.startsAt, event.endsAt)}
+            </span>
+            <span className="inline-flex items-center gap-2">
+              <MapPin className="h-4 w-4 shrink-0 text-[var(--accent)]" />
+              {event.venue}
+              {event.city ? ` · ${event.city}` : ''}
+            </span>
+            {stats.minPriceMinor !== null && (
+              <span className="font-mono-num inline-flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-3 py-1 text-xs font-semibold text-[var(--text-primary)]">
+                A partir de {formatMinorCurrency(stats.minPriceMinor, event.currency)}
               </span>
-              <span className="inline-flex items-center gap-2">
-                <MapPin className="h-4 w-4 text-white/70" />
-                {event.venue}
-                {event.city ? ` · ${event.city}` : ''}
-              </span>
-              {stats.minPriceMinor !== null && (
-                <span className="font-mono-num inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-white backdrop-blur-md">
-                  A partir de {formatMinorCurrency(stats.minPriceMinor, event.currency)}
-                </span>
-              )}
-            </div>
+            )}
           </div>
         </div>
       </section>
@@ -738,7 +730,7 @@ export function EventDetailPage() {
       {liveNotice && (
         <div
           role="status"
-          className="flex items-center justify-between gap-3 rounded-2xl border border-amber-500/35 bg-amber-500/10 px-4 py-3 text-xs font-medium text-amber-600 dark:text-amber-300"
+          className="flex items-center justify-between gap-3 rounded-2xl border border-amber-500/35 bg-amber-500/10 px-4 py-3 text-xs font-medium text-amber-700"
         >
           <span className="flex items-center gap-2">
             <Radio className="h-4 w-4 shrink-0" />

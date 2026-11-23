@@ -658,7 +658,7 @@ export function VisualMapEditor({
         <div className="flex flex-wrap items-center gap-2">
           {dirtyCoordinates.length > 0 && (
             <>
-              <span className="rounded-full border border-amber-500/35 bg-amber-500/12 px-3 py-1 text-xs font-semibold text-amber-600 dark:text-amber-400">
+              <span className="rounded-full border border-amber-500/35 bg-amber-500/12 px-3 py-1 text-xs font-semibold text-amber-700">
                 {dirtyCoordinates.length}{' '}
                 {dirtyCoordinates.length === 1
                   ? 'alteração pendente'
@@ -773,13 +773,13 @@ export function VisualMapEditor({
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
         {/* Left: Interactive Floor Map Canvas + Unpositioned Tray */}
         <div className="space-y-4">
-          <div className="relative overflow-hidden rounded-3xl border border-[var(--border-subtle)] bg-[#0c0c12]">
-            <div className="flex items-center justify-between border-b border-white/10 bg-black/40 px-4 py-2.5 text-[11px] text-white/75">
+          <div className="relative overflow-hidden rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)]">
+            <div className="flex items-center justify-between gap-3 border-b border-[var(--border-subtle)] bg-[var(--bg-surface)] px-4 py-2.5 text-[11px] text-[var(--text-secondary)]">
               <span className="inline-flex items-center gap-1.5">
-                <Move className="h-3.5 w-3.5 text-[#ff5c85]" />
+                <Move className="h-3.5 w-3.5 shrink-0 text-[var(--accent)]" />
                 Arraste os marcadores com mouse ou toque · Setas do teclado para ajuste fino
               </span>
-              <span className="font-mono-num text-white/60">
+              <span className="font-mono-num shrink-0 text-[var(--text-muted)]">
                 {positionedTables.length}/{allTables.length} no mapa
               </span>
             </div>
@@ -805,16 +805,16 @@ export function VisualMapEditor({
                       src={resolvedFloorUrl}
                       alt={`Planta baixa de ${event.title}`}
                       draggable={false}
-                      className="block h-auto w-full rounded-2xl border border-white/15 object-contain shadow-2xl"
+                      className="block h-auto w-full rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)] object-contain shadow-[var(--shadow-elevated)]"
                     />
                   ) : (
-                    <div className="relative aspect-[16/10] w-full overflow-hidden rounded-2xl border border-white/15 bg-[#13131c] shadow-2xl">
-                      <div className="pointer-events-none absolute top-3.5 left-1/2 -translate-x-1/2 rounded-full border border-white/15 bg-white/5 px-6 py-1 text-[10px] font-semibold tracking-[0.26em] text-white/55 uppercase">
+                    <div className="relative aspect-[16/10] w-full overflow-hidden rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-[var(--shadow-elevated)]">
+                      <div className="pointer-events-none absolute top-3.5 left-1/2 z-1 -translate-x-1/2 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-6 py-1 text-[10px] font-semibold tracking-[0.26em] text-[var(--text-secondary)] uppercase">
                         Palco / Frente
                       </div>
                       {positionedTables.length === 0 && (
-                        <div className="pointer-events-none flex h-full flex-col items-center justify-center p-6 text-center text-xs text-white/55">
-                          <p className="font-semibold text-white/80">
+                        <div className="pointer-events-none relative z-1 flex h-full flex-col items-center justify-center p-6 text-center text-xs text-[var(--text-secondary)]">
+                          <p className="font-semibold text-[var(--text-primary)]">
                             Nenhuma mesa posicionada na planta
                           </p>
                           <p className="mt-1 max-w-sm text-[11px]">
@@ -831,7 +831,7 @@ export function VisualMapEditor({
                       className="pointer-events-none absolute inset-0 rounded-2xl"
                       style={{
                         backgroundImage:
-                          'linear-gradient(to right, rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.08) 1px, transparent 1px)',
+                          'linear-gradient(to right, var(--map-grid) 1px, transparent 1px), linear-gradient(to bottom, var(--map-grid) 1px, transparent 1px)',
                         backgroundSize: `${gridStep * 2}% ${gridStep * 2}%`,
                       }}
                     />
@@ -878,17 +878,17 @@ export function VisualMapEditor({
                           }}
                           style={{ touchAction: 'none' }}
                           title={`Mesa ${table.label} (${sector.name}) · X ${coord.x.toFixed(1)}%, Y ${coord.y.toFixed(1)}%`}
-                          className={`relative flex h-9 min-w-9 items-center justify-center rounded-full border-2 px-2 text-[11px] font-bold text-white shadow-lg transition-transform select-none sm:h-10 sm:min-w-10 ${
+                          className={`relative flex h-9 min-w-9 items-center justify-center rounded-full border-2 px-2 text-[11px] font-bold shadow-sm transition-transform select-none sm:h-10 sm:min-w-10 ${
                             isDragging
-                              ? 'scale-115 cursor-grabbing ring-4 ring-white/40'
+                              ? 'scale-115 cursor-grabbing'
                               : 'cursor-grab hover:scale-105'
                           } ${
                             table.isEnabled
                               ? `${color.bg} ${color.border}`
-                              : 'border-white/40 bg-slate-600/85 line-through opacity-80'
+                              : 'border-slate-500 bg-slate-200 text-slate-700 line-through'
                           } ${
-                            isSelected
-                              ? 'ring-4 ring-white shadow-[0_0_24px_rgba(255,255,255,0.45)]'
+                            isSelected || isDragging
+                              ? 'ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-[var(--bg-surface)]'
                               : ''
                           }`}
                         >
@@ -896,14 +896,14 @@ export function VisualMapEditor({
                           {isDirty && (
                             <span
                               title="Posição alterada (não salva)"
-                              className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full border border-[#0c0c12] bg-amber-400"
+                              className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full border border-[var(--bg-surface)] bg-[var(--warning)]"
                             />
                           )}
                         </button>
 
                         {/* Live coordinates pill while dragging */}
                         {isDragging && (
-                          <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 rounded-full border border-white/20 bg-black/85 px-2.5 py-0.5 font-mono-num text-[10px] font-semibold whitespace-nowrap text-white shadow-lg">
+                          <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 rounded-full border border-[var(--border-strong)] bg-[var(--bg-surface)] px-2.5 py-0.5 font-mono-num text-[10px] font-semibold whitespace-nowrap shadow-sm">
                             X {coord.x.toFixed(1)}% · Y {coord.y.toFixed(1)}%
                           </div>
                         )}

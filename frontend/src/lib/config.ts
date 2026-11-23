@@ -4,4 +4,3 @@ export const API_BASE_URL = (
 
 export const AUTH_TOKEN_STORAGE_KEY = 'mesa-access-token';
 export const AUTH_TOKEN_EXPIRY_STORAGE_KEY = 'mesa-access-token-expires-at';
-export const THEME_STORAGE_KEY = 'mesa-theme';

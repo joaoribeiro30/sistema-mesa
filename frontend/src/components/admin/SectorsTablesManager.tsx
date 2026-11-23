@@ -360,7 +360,7 @@ export function SectorsTablesManager({
                                 }
                                 className={`rounded-full px-2 py-0.5 font-mono-num text-[10px] font-medium ${
                                   isPositioned
-                                    ? 'bg-emerald-500/12 text-emerald-600 dark:text-emerald-400'
+                                    ? 'bg-emerald-500/12 text-emerald-700'
                                     : 'bg-[var(--bg-surface)] text-[var(--text-muted)]'
                                 }`}
                               >
@@ -379,7 +379,7 @@ export function SectorsTablesManager({
                                 }
                                 className={`inline-flex cursor-pointer items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
                                   table.isEnabled
-                                    ? 'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 dark:text-emerald-400'
+                                    ? 'bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20'
                                     : 'bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                                 }`}
                               >
@@ -566,7 +566,7 @@ function SectorFormModal({
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--modal-backdrop)] p-4 backdrop-blur-sm"
     >
       <div className="animate-pop-in w-full max-w-md overflow-hidden rounded-3xl border border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-[var(--shadow-elevated)]">
         <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-5 py-4">
@@ -752,7 +752,7 @@ function TableFormModal({
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--modal-backdrop)] p-4 backdrop-blur-sm"
     >
       <div className="animate-pop-in w-full max-w-md overflow-hidden rounded-3xl border border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-[var(--shadow-elevated)]">
         <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-5 py-4">
@@ -1004,7 +1004,7 @@ function BatchTablesModal({
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--modal-backdrop)] p-4 backdrop-blur-sm"
     >
       <div className="animate-pop-in w-full max-w-md overflow-hidden rounded-3xl border border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-[var(--shadow-elevated)]">
         <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-5 py-4">

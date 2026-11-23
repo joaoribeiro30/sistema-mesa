@@ -187,21 +187,21 @@ export function InteractiveFloorMap({
 
   return (
     <div className="space-y-4">
-      <div className="relative overflow-hidden rounded-3xl border border-[var(--border-subtle)] bg-[#0c0c12]">
+      <div className="relative overflow-hidden rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)]">
         {/* Top-left hint badge */}
-        <div className="pointer-events-none absolute top-4 left-4 z-20 hidden items-center gap-2 rounded-full border border-white/15 bg-black/60 px-3.5 py-1.5 text-[11px] font-medium text-white/80 backdrop-blur-md sm:inline-flex">
-          <Move className="h-3.5 w-3.5 text-[#ff5c85]" />
+        <div className="pointer-events-none absolute top-4 left-4 z-20 hidden items-center gap-2 rounded-full border border-[var(--border-strong)] bg-[var(--bg-surface)] px-3.5 py-1.5 text-[11px] font-medium text-[var(--text-secondary)] sm:inline-flex">
+          <Move className="h-3.5 w-3.5 text-[var(--accent)]" />
           Arraste para mover · Ctrl + Scroll para zoom
         </div>
 
         {/* Top-right Zoom Controls */}
-        <div className="absolute top-4 right-4 z-20 flex items-center gap-1 rounded-full border border-white/15 bg-black/65 p-1 text-white backdrop-blur-md">
+        <div className="absolute top-4 right-4 z-20 flex items-center gap-1 rounded-full border border-[var(--border-strong)] bg-[var(--bg-surface)] p-1 shadow-sm">
           <button
             type="button"
             onClick={handleZoomOut}
             disabled={scale <= MIN_SCALE}
             aria-label="Diminuir zoom"
-            className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-[var(--bg-hover)] disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Minus className="h-4 w-4" />
           </button>
@@ -213,17 +213,17 @@ export function InteractiveFloorMap({
             onClick={handleZoomIn}
             disabled={scale >= MAX_SCALE}
             aria-label="Aumentar zoom"
-            className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-[var(--bg-hover)] disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Plus className="h-4 w-4" />
           </button>
-          <span className="mx-0.5 h-4 w-px bg-white/15" aria-hidden="true" />
+          <span className="mx-0.5 h-4 w-px bg-[var(--border-strong)]" aria-hidden="true" />
           <button
             type="button"
             onClick={handleResetView}
             aria-label="Centralizar mapa"
             title="Centralizar mapa"
-            className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-white/15"
+            className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-[var(--bg-hover)]"
           >
             <Maximize2 className="h-3.5 w-3.5" />
           </button>
@@ -242,7 +242,7 @@ export function InteractiveFloorMap({
           style={{
             touchAction: 'none',
             backgroundImage:
-              'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.06) 1px, transparent 0)',
+              'radial-gradient(circle at 1px 1px, var(--map-grid) 1px, transparent 0)',
             backgroundSize: '24px 24px',
           }}
         >
@@ -259,28 +259,28 @@ export function InteractiveFloorMap({
                 alt="Planta interativa do evento"
                 draggable={false}
                 onError={() => setImageFailed(true)}
-                className="block h-auto w-full rounded-2xl border border-white/10 object-contain shadow-2xl"
+                className="block h-auto w-full rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)] object-contain shadow-[var(--shadow-elevated)]"
               />
             ) : (
               /* Sleek Architectural Blueprint Fallback when floorPlanImageUrl is null */
-              <div className="relative aspect-[16/10] w-full overflow-hidden rounded-2xl border border-white/12 bg-[#12121a] shadow-2xl">
+              <div className="relative aspect-[16/10] w-full overflow-hidden rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-[var(--shadow-elevated)]">
                 <div
-                  className="pointer-events-none absolute inset-0 opacity-45"
+                  className="pointer-events-none absolute inset-0"
                   style={{
                     backgroundImage:
-                      'linear-gradient(to right, rgba(255,255,255,0.06) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.06) 1px, transparent 1px)',
+                      'linear-gradient(to right, var(--map-grid) 1px, transparent 1px), linear-gradient(to bottom, var(--map-grid) 1px, transparent 1px)',
                     backgroundSize: '10% 10%',
                   }}
                 />
-                <div className="pointer-events-none absolute top-4 left-1/2 -translate-x-1/2 rounded-full border border-white/15 bg-white/5 px-6 py-1.5 text-[10px] font-semibold tracking-[0.26em] text-white/50 uppercase">
+                <div className="pointer-events-none absolute top-4 left-1/2 -translate-x-1/2 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-6 py-1.5 text-[10px] font-semibold tracking-[0.26em] text-[var(--text-secondary)] uppercase">
                   Palco / Frente
                 </div>
                 {positionedTables.length === 0 && (
-                  <div className="flex h-full flex-col items-center justify-center p-6 text-center text-xs text-white/55">
-                    <p className="font-medium text-white/80">
+                  <div className="relative flex h-full flex-col items-center justify-center p-6 text-center text-xs text-[var(--text-secondary)]">
+                    <p className="font-medium text-[var(--text-primary)]">
                       Nenhuma mesa posicionada na planta ainda.
                     </p>
-                    <p className="mt-1 max-w-sm text-[11px] text-white/50">
+                    <p className="mt-1 max-w-sm text-[11px]">
                       Você pode selecionar mesas disponíveis abaixo ou alternar para a visualização em lista por setores.
                     </p>
                   </div>
@@ -344,7 +344,7 @@ export function InteractiveFloorMap({
                     }}
                     aria-label={`Mesa ${table.label}, setor ${sector.name}, ${table.capacity} lugares, ${formatMinorCurrency(table.priceMinor, currency)}, ${meta.label}`}
                     aria-pressed={isSelected}
-                    className={`group relative flex h-9 min-w-9 cursor-pointer items-center justify-center rounded-full border-2 px-2 text-[11px] font-bold tracking-tight transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-white sm:h-10 sm:min-w-10 ${meta.markerClass}`}
+                    className={`group relative flex h-9 min-w-9 cursor-pointer items-center justify-center rounded-full border-2 px-2 text-[11px] font-bold tracking-tight transition-all duration-150 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--text-primary)] sm:h-10 sm:min-w-10 ${meta.markerClass}`}
                   >
                     {isSelected ? (
                       <span className="inline-flex items-center gap-0.5">
@@ -365,7 +365,7 @@ export function InteractiveFloorMap({
                   {isHovered && (
                     <div
                       role="tooltip"
-                      className={`pointer-events-none absolute left-1/2 z-40 hidden w-56 -translate-x-1/2 rounded-2xl border border-white/15 bg-[#0e0e14]/95 p-3 text-left text-white shadow-2xl backdrop-blur-xl sm:block ${
+                      className={`pointer-events-none absolute left-1/2 z-40 hidden w-56 -translate-x-1/2 rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)] p-3 text-left shadow-[var(--shadow-elevated)] sm:block ${
                         showTooltipBelow ? 'top-full mt-2.5' : 'bottom-full mb-2.5'
                       }`}
                     >
@@ -379,26 +379,26 @@ export function InteractiveFloorMap({
                           {meta.shortLabel}
                         </span>
                       </div>
-                      <p className="mt-0.5 truncate text-[11px] text-white/65">
+                      <p className="mt-0.5 truncate text-[11px] text-[var(--text-secondary)]">
                         {sector.name}
                       </p>
-                      <div className="mt-2 flex items-center justify-between border-t border-white/10 pt-2 text-xs">
-                        <span className="inline-flex items-center gap-1 text-white/75">
-                          <Users className="h-3.5 w-3.5 text-white/50" />
+                      <div className="mt-2 flex items-center justify-between border-t border-[var(--border-subtle)] pt-2 text-xs">
+                        <span className="inline-flex items-center gap-1 text-[var(--text-secondary)]">
+                          <Users className="h-3.5 w-3.5 text-[var(--text-muted)]" />
                           {table.capacity} lugares
                         </span>
-                        <span className="font-mono-num font-semibold text-white">
+                        <span className="font-mono-num font-semibold">
                           {formatMinorCurrency(table.priceMinor, currency)}
                         </span>
                       </div>
                       {visualState === 'RESERVED' && table.expiresAt && (
-                        <p className="mt-1.5 flex items-center gap-1 text-[10px] text-amber-400">
+                        <p className="mt-1.5 flex items-center gap-1 text-[10px] text-[var(--warning)]">
                           <Clock className="h-3 w-3" />
                           Bloqueio até {formatExpiryTime(table.expiresAt)}
                         </p>
                       )}
                       {selectable && (
-                        <p className="mt-1.5 text-[10px] text-white/55">
+                        <p className="mt-1.5 text-[10px] text-[var(--text-muted)]">
                           {isSelected
                             ? 'Clique para remover da seleção'
                             : 'Clique para selecionar'}
@@ -424,7 +424,7 @@ export function InteractiveFloorMap({
               const expiry = formatExpiryTime(table.expiresAt);
 
               return (
-                <div className="rounded-2xl border border-white/15 bg-[#101017]/95 p-4 text-white shadow-2xl backdrop-blur-xl">
+                <div className="rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)] p-4 shadow-[var(--shadow-elevated)]">
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <div className="flex items-center gap-2">
@@ -437,7 +437,7 @@ export function InteractiveFloorMap({
                           {meta.shortLabel}
                         </span>
                       </div>
-                      <p className="mt-0.5 text-xs text-white/65">
+                      <p className="mt-0.5 text-xs text-[var(--text-secondary)]">
                         Setor {sector.name}
                       </p>
                     </div>
@@ -448,24 +448,24 @@ export function InteractiveFloorMap({
                         setHoveredTableId(null);
                       }}
                       aria-label="Fechar detalhes da mesa"
-                      className="cursor-pointer rounded-full p-1 text-white/50 hover:bg-white/10 hover:text-white"
+                      className="cursor-pointer rounded-full p-1 text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
                     >
                       <X className="h-4 w-4" />
                     </button>
                   </div>
 
-                  <div className="mt-3 flex items-center justify-between border-t border-white/10 pt-3 text-xs">
-                    <span className="inline-flex items-center gap-1.5 text-white/80">
-                      <Users className="h-3.5 w-3.5 text-white/55" />
+                  <div className="mt-3 flex items-center justify-between border-t border-[var(--border-subtle)] pt-3 text-xs">
+                    <span className="inline-flex items-center gap-1.5 text-[var(--text-secondary)]">
+                      <Users className="h-3.5 w-3.5 text-[var(--text-muted)]" />
                       Até {table.capacity} pessoas
                     </span>
-                    <span className="font-mono-num text-sm font-bold text-white">
+                    <span className="font-mono-num text-sm font-bold">
                       {formatMinorCurrency(table.priceMinor, currency)}
                     </span>
                   </div>
 
                   {visualState === 'RESERVED' && expiry && (
-                    <p className="mt-2 flex items-center gap-1.5 text-[11px] text-amber-400">
+                    <p className="mt-2 flex items-center gap-1.5 text-[11px] text-[var(--warning)]">
                       <Clock className="h-3.5 w-3.5" />
                       Bloqueio pendente · libera às {expiry} se não paga
                     </p>
@@ -477,8 +477,8 @@ export function InteractiveFloorMap({
                       onClick={() => onToggleTable(table, sector)}
                       className={`mt-3 w-full cursor-pointer rounded-full px-4 py-2 text-xs font-semibold transition-colors ${
                         isSelected
-                          ? 'border border-white/20 bg-white/10 text-white hover:bg-white/20'
-                          : 'bg-white text-[#08080a] hover:bg-white/90'
+                          ? 'border border-[var(--border-strong)] bg-[var(--bg-elevated)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'
+                          : 'bg-[var(--cta-bg)] text-[var(--cta-text)] hover:bg-[var(--cta-hover)]'
                       }`}
                     >
                       {isSelected ? 'Remover seleção' : 'Selecionar mesa'}
