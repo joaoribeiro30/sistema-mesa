@@ -1,6 +1,6 @@
 import { Type } from '@fastify/type-provider-typebox';
 import type { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
-import type { FastifyInstance } from 'fastify';
+import { errorCodes, type FastifyInstance } from 'fastify';
 import type { Sessions } from '../auth/session.js';
 import type { Db } from '../db.js';
 import { closedObject, uuid } from '../events/contracts.js';
@@ -20,7 +20,7 @@ const imageParams = Type.Object({
 const imageSelect = {
   id: true, status: true, startsAt: true, coverImageUrl: true, bannerImageUrl: true, floorPlanImageUrl: true,
 } satisfies Prisma.EventSelect;
-const MAX_UPLOAD = 2 * 1024 * 1024;
+const MAX_UPLOAD = 5 * 1024 * 1024;
 const mediaTypes = ['image/png', 'image/jpeg', 'image/webp'];
 const pngHeader = Buffer.from('89504e470d0a1a0a', 'hex');
 const pngEnd = Buffer.from('0000000049454e44ae426082', 'hex');
@@ -75,6 +75,15 @@ export function registerEventImages(app: FastifyInstance, db: Db, sessions: Sess
 
   app.register(async (uploads) => {
     uploads.addContentTypeParser(mediaTypes, { parseAs: 'buffer' }, (_request, body, done) => done(null, body));
+    uploads.setErrorHandler((error, _request, reply) => {
+      if (error instanceof errorCodes.FST_ERR_CTP_BODY_TOO_LARGE) {
+        return reply.code(413).send({ code: 'IMAGE_TOO_LARGE', message: 'A imagem excede o limite de 5 MB.' });
+      }
+      if (error instanceof errorCodes.FST_ERR_CTP_INVALID_MEDIA_TYPE) {
+        return reply.code(415).send({ code: 'INVALID_IMAGE_TYPE', message: 'Envie uma imagem PNG, JPEG ou WebP.' });
+      }
+      throw error;
+    });
     uploads.withTypeProvider<TypeBoxTypeProvider>().post('/admin/events/:eventId/images/:kind', {
       onRequest: sessions.requireRole('ADMIN'),
       bodyLimit: MAX_UPLOAD,

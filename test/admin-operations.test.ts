@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHmac, randomUUID } from 'node:crypto';
 import { test } from 'node:test';
+import { crc32 } from 'node:zlib';
 import type { InjectOptions } from 'fastify';
 import { buildApp } from '../src/app.js';
 import { hashPassword } from '../src/auth/credentials.js';
@@ -41,7 +42,9 @@ async function openStream(url: string, cursor?: string) {
 }
 
 test('gestão administrativa, disponibilidade ao vivo e portaria', async (t) => {
-  const config = { ...loadConfig(), captcha: undefined, trustedProxies: [] };
+  const loaded = loadConfig();
+  const frontendOrigin = 'https://mesa-upload.example.test';
+  const config = { ...loaded, corsOrigins: [...loaded.corsOrigins, frontendOrigin], captcha: undefined, trustedProxies: [] };
   assert.equal(new URL(config.databaseUrl).hostname, '127.0.0.1');
   assert.equal(config.payments.provider, 'mock');
   const db = createDb(config.databaseUrl);
@@ -202,19 +205,51 @@ test('gestão administrativa, disponibilidade ao vivo e portaria', async (t) => 
     assert.equal((await adminCall('PUT', `${eventPath}/layout`, layout)).statusCode, 200);
     assert.equal((await adminCall('GET', eventPath)).json().event.sectors[0].tables[0].x, 40.5);
 
-    const upload = (kind: string, mediaType: string) => inject({
-      method: 'POST', url: `${eventPath}/images/${kind}`, payload: png,
-      headers: { authorization: admin.authorization, 'content-type': mediaType },
+    const upload = (kind: string, mediaType: string, payload = png) => inject({
+      method: 'POST', url: `${eventPath}/images/${kind}`, payload,
+      headers: { authorization: admin.authorization, 'content-type': mediaType, origin: frontendOrigin },
     });
     assert.equal((await upload('floor-plan', 'image/jpeg')).statusCode, 400);
-    assert.equal((await upload('floor-plan', 'image/svg+xml')).statusCode, 415);
-    const uploaded = await upload('floor-plan', 'image/png');
+    const invalidType = await upload('floor-plan', 'image/svg+xml');
+    assert.equal(invalidType.statusCode, 415);
+    assert.equal(invalidType.json().code, 'INVALID_IMAGE_TYPE');
+
+    const maxBytes = 5 * 1024 * 1024;
+    // Pad a valid PNG with a private ancillary chunk to exercise the exact limit.
+    const chunk = Buffer.alloc(maxBytes - png.length);
+    chunk.writeUInt32BE(chunk.length - 12);
+    chunk.write('raNd', 4, 'ascii');
+    chunk.writeUInt32BE(crc32(chunk.subarray(4, -4)), chunk.length - 4);
+    const largePng = Buffer.concat([png.subarray(0, -12), chunk, png.subarray(-12)]);
+    const uploaded = await upload('floor-plan', 'image/png', largePng);
     assert.equal(uploaded.statusCode, 201, uploaded.body);
+    assert.equal(uploaded.headers['access-control-allow-origin'], frontendOrigin);
     floorImageUrl = uploaded.json().image.url;
+
+    const oversized = await upload('floor-plan', 'image/png', Buffer.alloc(maxBytes + 1));
+    assert.equal(oversized.statusCode, 413, oversized.body);
+    assert.deepEqual(oversized.json(), { code: 'IMAGE_TOO_LARGE', message: 'A imagem excede o limite de 5 MB.' });
+    assert.equal(oversized.headers['access-control-allow-origin'], frontendOrigin);
+
     assert.equal((await inject({ url: floorImageUrl })).statusCode, 404);
-    const preview = await adminCall('GET', floorImageUrl);
+    const preview = await adminCall('GET', floorImageUrl, undefined, replica);
+    assert.equal(preview.statusCode, 200);
     assert.equal(preview.headers['content-type'], 'image/png');
-    assert.deepEqual(preview.rawPayload, png);
+    assert.ok(preview.rawPayload.equals(largePng));
+
+    const fixtures = [
+      ['cover', 'image/jpeg', '/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAoHBwgHBgoICAgLCgoLDhgQDg0NDh0VFhEYIx8lJCIfIiEmKzcvJik0KSEiMEExNDk7Pj4+JS5ESUM8SDc9Pjv/2wBDAQoLCw4NDhwQEBw7KCIoOzs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozv/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAf/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFAEBAAAAAAAAAAAAAAAAAAAAAP/EABQRAQAAAAAAAAAAAAAAAAAAAAD/2gAMAwEAAhEDEQA/AIyAD//Z'],
+      ['banner', 'image/webp', 'UklGRkAAAABXRUJQVlA4WAoAAAAQAAAAAAAAAAAAQUxQSAIAAAAAAFZQOCAYAAAAMAEAnQEqAQABAAJAOCWkAANwAP77nMAA'],
+    ] as const;
+    for (const [kind, mediaType, base64] of fixtures) {
+      const bytes = Buffer.from(base64, 'base64');
+      const saved = await upload(kind, mediaType, bytes);
+      assert.equal(saved.statusCode, 201, saved.body);
+      const response = await adminCall('GET', saved.json().image.url, undefined, replica);
+      assert.equal(response.statusCode, 200);
+      assert.equal(response.headers['content-type'], mediaType);
+      assert.ok(response.rawPayload.equals(bytes));
+    }
 
     assert.equal((await adminCall('DELETE', `${otherPath}/sectors/${otherSectorId}`)).statusCode, 204);
     assert.equal((await adminCall('DELETE', otherPath)).statusCode, 204);

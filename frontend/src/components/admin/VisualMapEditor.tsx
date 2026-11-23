@@ -31,10 +31,10 @@ import {
   getSectorColor,
   isValidHttpsImageUrl,
   minorToEditablePrice,
-  validateImageFile,
 } from '@/components/admin/adminUtils';
 import { useAuthenticatedImageUrl } from '@/hooks/useAuthenticatedImageUrl';
 import { adminApi } from '@/lib/api';
+import { EVENT_IMAGE_ACCEPT, IMAGE_SIZE_LABEL, validateImageFile } from '@/lib/eventImages';
 import { formatMinorCurrency, parseMajorPriceToMinor } from '@/lib/format';
 import type {
   AdminEventDetail,
@@ -110,6 +110,8 @@ export function VisualMapEditor({
       : '',
   );
   const [uploadingFloor, setUploadingFloor] = useState(false);
+  const [floorUploadError, setFloorUploadError] = useState<string | null>(null);
+  const [unreadableFloorSrc, setUnreadableFloorSrc] = useState<string | null>(null);
 
   // Saving layout state
   const [savingLayout, setSavingLayout] = useState(false);
@@ -137,6 +139,7 @@ export function VisualMapEditor({
     setDraftCoords({});
     setSelectedTableId(null);
     setActiveSectorFilter('ALL');
+    setFloorUploadError(null);
     setFloorUrlInput(
       event.floorPlanImageUrl?.startsWith('https://')
         ? event.floorPlanImageUrl
@@ -146,6 +149,10 @@ export function VisualMapEditor({
 
   const { src: resolvedFloorUrl, error: floorLoadError } =
     useAuthenticatedImageUrl(event.floorPlanImageUrl, imageRevision);
+  const floorPreviewFailed = floorLoadError || Boolean(resolvedFloorUrl && resolvedFloorUrl === unreadableFloorSrc);
+  const floorImageError = floorUploadError ?? (floorPreviewFailed ? 'Não foi possível exibir a planta baixa no editor.' : null);
+
+  useEffect(() => setUnreadableFloorSrc(null), [imageRevision]);
 
   // Flatten tables with sector color index
   const { allTables, tableMap } = useMemo(() => {
@@ -422,8 +429,8 @@ export function VisualMapEditor({
   // Upload floor plan directly from editor
   async function handleFloorPlanUpload(file: File) {
     const validationErr = validateImageFile(file);
+    setFloorUploadError(validationErr);
     if (validationErr) {
-      onNotify('error', validationErr);
       return;
     }
     setUploadingFloor(true);
@@ -433,7 +440,7 @@ export function VisualMapEditor({
       onNotify('success', 'Planta baixa enviada com sucesso.');
       await onRefreshEvent(true);
     } catch (err) {
-      onNotify('error', getAdminErrorMessage(err));
+      setFloorUploadError(getAdminErrorMessage(err));
     } finally {
       setUploadingFloor(false);
     }
@@ -447,6 +454,7 @@ export function VisualMapEditor({
       return;
     }
     setUploadingFloor(true);
+    setFloorUploadError(null);
     try {
       await adminApi.updateLayout(event.id, {
         floorPlanImageUrl: trimmed || null,
@@ -548,7 +556,7 @@ export function VisualMapEditor({
           <input
             ref={floorUploadRef}
             type="file"
-            accept="image/png,image/jpeg,image/webp"
+            accept={EVENT_IMAGE_ACCEPT}
             className="hidden"
             onChange={(e) => {
               const file = e.target.files?.[0];
@@ -559,6 +567,8 @@ export function VisualMapEditor({
           <button
             type="button"
             disabled={uploadingFloor}
+            title={`PNG, JPEG ou WebP, até ${IMAGE_SIZE_LABEL}`}
+            aria-describedby={floorImageError ? 'floor-image-error' : undefined}
             onClick={() => floorUploadRef.current?.click()}
             className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-[var(--border-strong)] bg-[var(--bg-elevated)] px-3.5 py-1.5 text-xs font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-50"
           >
@@ -567,7 +577,7 @@ export function VisualMapEditor({
             ) : (
               <Upload className="h-3.5 w-3.5 text-[var(--accent)]" />
             )}
-            Enviar Planta
+            {uploadingFloor ? 'Enviando planta…' : 'Enviar Planta'}
           </button>
 
           <button
@@ -692,6 +702,13 @@ export function VisualMapEditor({
         </div>
       </div>
 
+      {floorImageError && (
+        <p id="floor-image-error" role="alert" className="flex items-start gap-2 rounded-2xl border border-[var(--danger)]/30 bg-[var(--danger)]/10 px-4 py-3 text-sm text-[var(--danger)]">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          {floorImageError}
+        </p>
+      )}
+
       {/* Floor plan external HTTPS URL inline bar */}
       {showUrlPopover && (
         <form
@@ -800,11 +817,12 @@ export function VisualMapEditor({
                   className="relative w-full max-w-4xl select-none"
                   style={{ touchAction: 'none' }}
                 >
-                  {resolvedFloorUrl && !floorLoadError ? (
+                  {resolvedFloorUrl && !floorPreviewFailed ? (
                     <img
                       src={resolvedFloorUrl}
                       alt={`Planta baixa de ${event.title}`}
                       draggable={false}
+                      onError={() => setUnreadableFloorSrc(resolvedFloorUrl)}
                       className="block h-auto w-full rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-surface)] object-contain shadow-[var(--shadow-elevated)]"
                     />
                   ) : (

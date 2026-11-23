@@ -18,10 +18,10 @@ import {
   isoToDateTimeLocal,
   isValidHttpsImageUrl,
   slugifyTitle,
-  validateImageFile,
 } from '@/components/admin/adminUtils';
 import { useAuthenticatedImageUrl } from '@/hooks/useAuthenticatedImageUrl';
 import { adminApi } from '@/lib/api';
+import { EVENT_IMAGE_ACCEPT, IMAGE_SIZE_LABEL, validateImageFile } from '@/lib/eventImages';
 import type {
   AdminEvent,
   AdminEventImageKind,
@@ -62,7 +62,7 @@ const IMAGE_SLOTS: Array<{
     kind: 'cover',
     field: 'coverImageUrl',
     label: 'Imagem de Capa',
-    hint: 'Card do catálogo (PNG, JPEG ou WebP, até 2 MiB)',
+    hint: 'Card do catálogo',
   },
   {
     kind: 'banner',
@@ -182,7 +182,7 @@ function ImageSlotField({
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/png,image/jpeg,image/webp"
+              accept={EVENT_IMAGE_ACCEPT}
               className="hidden"
               onChange={(e) => {
                 const file = e.target.files?.[0];
@@ -710,7 +710,7 @@ export function EventFormModal({
                   Imagens e Planta Baixa
                 </h3>
                 <p className="text-xs text-[var(--text-muted)]">
-                  Envie arquivos diretamente (PNG, JPEG ou WebP até 2 MiB) ou informe URLs HTTPS externas.
+                  Envie arquivos diretamente (PNG, JPEG ou WebP, até {IMAGE_SIZE_LABEL}) ou informe URLs HTTPS externas.
                 </p>
               </div>
 

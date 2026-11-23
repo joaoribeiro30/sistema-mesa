@@ -39,6 +39,7 @@ import type {
   User,
 } from '@/types/api';
 import { recordServerDate } from './serverClock';
+import { eventImageMediaType, IMAGE_TOO_LARGE_MESSAGE } from './eventImages';
 
 export class ApiError extends Error {
   readonly status: number;
@@ -490,17 +491,21 @@ export const adminApi = {
     kind: AdminEventImageKind,
     file: File,
   ): Promise<{ image: AdminImageUploadResult }> {
-    const contentType = file.type || 'application/octet-stream';
-    return apiRequest<{ image: AdminImageUploadResult }>(
-      `/admin/events/${encodeURIComponent(eventId)}/images/${encodeURIComponent(kind)}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': contentType,
+    try {
+      return await apiRequest<{ image: AdminImageUploadResult }>(
+        `/admin/events/${encodeURIComponent(eventId)}/images/${encodeURIComponent(kind)}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': eventImageMediaType(file) ?? 'application/octet-stream' },
+          body: file,
         },
-        body: file,
-      },
-    );
+      );
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 413) {
+        throw new ApiError(IMAGE_TOO_LARGE_MESSAGE, 413, 'IMAGE_TOO_LARGE');
+      }
+      throw error;
+    }
   },
 
   async listSectors(eventId: string): Promise<{ sectors: AdminSector[] }> {

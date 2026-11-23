@@ -96,7 +96,7 @@ data: {"eventId":"31a296b5-d833-4ccb-a2cd-6f320dd5f35b","tableId":"5a4a0bc9-7990
 | `GET /admin/events/:eventId` | — | `200` com `{ "event": event }`, incluindo `sectors[].tables`. |
 | `PATCH /admin/events/:eventId` | Um ou mais campos do cadastro | `200` com `{ "event": event }`. |
 | `DELETE /admin/events/:eventId` | — | `204` quando não há histórico de reservas. Remove também a estrutura e os uploads do evento. |
-| `POST /admin/events/:eventId/images/:kind` | Binário PNG, JPEG ou WebP, até 2 MiB | `201` com `{ "image": { "kind": "COVER", "url": "/events/<eventId>/images/cover", "mediaType": "image/png" } }`. |
+| `POST /admin/events/:eventId/images/:kind` | Binário PNG, JPEG ou WebP, até 5 MiB (5.242.880 bytes) | `201` com `{ "image": { "kind": "COVER", "url": "/events/<eventId>/images/cover", "mediaType": "image/png" } }`. Acima do limite, retorna `413 IMAGE_TOO_LARGE`. |
 
 O cadastro exige `slug`, `title`, `startsAt`, `endsAt`, `venue`, `city` e `category`. Os outros campos são opcionais. O padrão é `status: "DRAFT"`, `displayMode: "BOTH"` e `currency: "BRL"`. As respostas administrativas incluem `id`, `status`, `createdAt` e `updatedAt`.
 
@@ -121,7 +121,7 @@ O cadastro exige `slug`, `title`, `startsAt`, `endsAt`, `venue`, `city` e `categ
 
 Use `DRAFT`, `PUBLISHED` ou `CLOSED` em `status` e `MAP`, `LIST` ou `BOTH` em `displayMode`. Fechar um evento impede novos bloqueios. Reservas existentes conservam seus prazos e podem concluir o pagamento. O histórico de reservas também impede alteração da moeda.
 
-O upload aceita `kind` igual a `cover`, `banner` ou `floor-plan` e atualiza o campo correspondente do evento. Para usar uma imagem externa, envie uma URL HTTPS no cadastro, no `PATCH` ou, no caso da planta, no `PUT /layout`. Enviar `null` remove a imagem. Use a URL relativa retornada pelo upload para exibir o arquivo a partir da origem da API.
+O upload aceita `kind` igual a `cover`, `banner` ou `floor-plan`. A API armazena os bytes no PostgreSQL e atualiza o campo correspondente do evento na mesma transação. Para usar uma imagem externa, envie uma URL HTTPS no cadastro, no `PATCH` ou, no caso da planta, no `PUT /layout`. Enviar `null` remove a imagem. Use a URL relativa retornada pelo upload para exibir o arquivo a partir da origem da API.
 
 ### Setores, mesas e planta
 

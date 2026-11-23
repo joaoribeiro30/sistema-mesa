@@ -7,9 +7,6 @@ import type {
   SettlementOperation,
 } from '@/types/api';
 
-export const MAX_IMAGE_BYTES = 2 * 1024 * 1024; // 2 MiB
-export const ACCEPTED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp'] as const;
-
 export const EVENT_STATUS_META: Record<
   EventStatus,
   { label: string; pillClass: string; dotClass: string }
@@ -225,16 +222,6 @@ export function formatShortTime(iso: string | null | undefined): string {
     minute: '2-digit',
     second: '2-digit',
   }).format(date);
-}
-
-export function validateImageFile(file: File): string | null {
-  if (!ACCEPTED_IMAGE_TYPES.includes(file.type as (typeof ACCEPTED_IMAGE_TYPES)[number])) {
-    return 'Formato inválido. Envie uma imagem PNG, JPEG ou WebP.';
-  }
-  if (file.size > MAX_IMAGE_BYTES) {
-    return 'A imagem excede o limite de 2 MiB.';
-  }
-  return null;
 }
 
 export function isValidHttpsImageUrl(url: string): boolean {
