@@ -1,8 +1,8 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { AuthProvider } from '@/contexts/AuthContext';
-import { AdminDashboardPage } from '@/pages/AdminDashboardPage';
 import { EventDetailPage } from '@/pages/EventDetailPage';
 import { HomePage } from '@/pages/HomePage';
 import { MyReservationsPage } from '@/pages/MyReservationsPage';
@@ -12,6 +12,11 @@ import { LoginPage } from '@/pages/auth/LoginPage';
 import { RegisterPage } from '@/pages/auth/RegisterPage';
 import { ResetPasswordPage } from '@/pages/auth/ResetPasswordPage';
 import { VerifyEmailPage } from '@/pages/auth/VerifyEmailPage';
+
+const AdminDashboardPage = lazy(async () => {
+  const { AdminDashboardPage } = await import('@/pages/AdminDashboardPage');
+  return { default: AdminDashboardPage };
+});
 
 export function App() {
   return (
@@ -50,7 +55,9 @@ export function App() {
             element={
               <MainLayout>
                 <ProtectedRoute allowedRoles={['ADMIN']}>
-                  <AdminDashboardPage />
+                  <Suspense fallback={<p role="status" className="p-6 text-sm text-[var(--text-secondary)]">Carregando painel administrativo…</p>}>
+                    <AdminDashboardPage />
+                  </Suspense>
                 </ProtectedRoute>
               </MainLayout>
             }
