@@ -1,0 +1,59 @@
+{
+  "name": "sistemamesa",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "^22.18.0 || ^24.11.0 || ^26.0.0"
+  },
+  "scripts": {
+    "local:env": "node scripts/env-local.mjs",
+    "db:local": "node scripts/postgres-local.mjs",
+    "db:generate": "prisma generate --config prisma7.config.ts",
+    "db:migrate": "prisma migrate deploy --config prisma7.config.ts",
+    "db:migrate:dev": "prisma migrate dev --config prisma7.config.ts",
+    "db:seed": "tsx prisma/seed.ts",
+    "dev": "tsx watch src/server.ts",
+    "dev:api": "tsx src/server.ts",
+    "dev:frontend": "npm --prefix frontend run dev -- --strictPort",
+    "build": "npm run db:generate && tsc -p tsconfig.build.json",
+    "build:frontend": "npm --prefix frontend run build",
+    "start": "node dist/server.js",
+    "preview:frontend": "npm --prefix frontend run preview -- --strictPort",
+    "typecheck": "tsc --noEmit",
+    "typecheck:frontend": "npm --prefix frontend run typecheck",
+    "test": "npm run test:integration && npm run test:e2e",
+    "test:integration": "tsx --test test/*.test.ts",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.0.0",
+    "@fastify/helmet": "^13.2.0",
+    "@fastify/jwt": "^10.2.8",
+    "@fastify/type-provider-typebox": "^6.0.0",
+    "@prisma/adapter-pg": "7.10.1",
+    "@prisma/client": "7.10.1",
+    "bcryptjs": "^3.0.3",
+    "dotenv": "^17.0.0",
+    "fastify": "^5.12.8",
+    "google-auth-library": "^10.0.0",
+    "nodemailer": "^8.0.0",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.1",
+    "@types/node": "^24.0.0",
+    "@types/nodemailer": "^7.0.0",
+    "@types/qrcode": "^1.5.6",
+    "embedded-postgres": "18.7.0-beta.19",
+    "prisma": "7.10.1",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.3"
+  },
+  "allowScripts": {
+    "@embedded-postgres/windows-x64@18.7.0-beta.19": true,
+    "@prisma/engines@7.10.1": true,
+    "esbuild@0.28.2": true,
+    "prisma@7.10.1": true
+  }
+}

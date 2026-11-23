@@ -1,0 +1,216 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg-canvas: #08080a;
+  --bg-surface: #111116;
+  --bg-elevated: #17171f;
+  --bg-hover: #1e1e28;
+  --bg-glass: rgba(8, 8, 10, 0.78);
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.18);
+  --text-primary: #f5f5f7;
+  --text-secondary: #a0a0ae;
+  --text-muted: #6c6c7a;
+  --cta-bg: #ffffff;
+  --cta-text: #08080a;
+  --cta-hover: #e8e8ee;
+  --accent: #ff3366;
+  --accent-soft: rgba(255, 51, 102, 0.14);
+  --accent-border: rgba(255, 51, 102, 0.35);
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --shadow-elevated: 0 24px 60px -15px rgba(0, 0, 0, 0.72);
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+  --bg-canvas: #f6f6f8;
+  --bg-surface: #ffffff;
+  --bg-elevated: #f0f0f4;
+  --bg-hover: #e7e7ee;
+  --bg-glass: rgba(246, 246, 248, 0.84);
+  --border-subtle: rgba(12, 12, 18, 0.09);
+  --border-strong: rgba(12, 12, 18, 0.2);
+  --text-primary: #0b0b10;
+  --text-secondary: #525260;
+  --text-muted: #7b7b8a;
+  --cta-bg: #0b0b10;
+  --cta-text: #ffffff;
+  --cta-hover: #24242f;
+  --accent: #e11d48;
+  --accent-soft: rgba(225, 29, 72, 0.1);
+  --accent-border: rgba(225, 29, 72, 0.28);
+  --success: #059669;
+  --warning: #d97706;
+  --danger: #dc2626;
+  --shadow-elevated: 0 20px 50px -15px rgba(15, 15, 25, 0.14);
+}
+
+@layer base {
+  html {
+    background-color: var(--bg-canvas);
+    color: var(--text-primary);
+    font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--bg-canvas);
+    color: var(--text-primary);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  .font-display {
+    font-family: "Space Grotesk", "Inter", system-ui, sans-serif;
+    letter-spacing: -0.025em;
+  }
+
+  .font-mono-num {
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Custom subtle scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Hide scrollbar for horizontal chips */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--bg-elevated) 25%,
+    var(--bg-hover) 50%,
+    var(--bg-elevated) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s infinite linear;
+}
+
+/* Checkout drawer & ticket modal */
+@keyframes drawer-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes pop-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out both;
+}
+
+.animate-pop-in {
+  animation: pop-in 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+
+.checkout-drawer {
+  animation: sheet-in 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@media (min-width: 640px) {
+  .checkout-drawer {
+    animation-name: drawer-in;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .checkout-drawer,
+  .animate-fade-in,
+  .animate-pop-in {
+    animation: none;
+  }
+}
+
+/* Print only the digital ticket */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .ticket-printable,
+  .ticket-printable * {
+    visibility: visible;
+  }
+  .ticket-printable {
+    position: absolute;
+    inset: 0;
+    margin: 0 auto;
+    box-shadow: none !important;
+  }
+  .ticket-no-print {
+    display: none !important;
+  }
+}
