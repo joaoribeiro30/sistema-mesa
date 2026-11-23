@@ -6,24 +6,56 @@
   --bg-surface: #ffffff;
   --bg-elevated: #f0f0f4;
   --bg-hover: #e7e7ee;
-  --bg-glass: rgba(246, 246, 248, 0.84);
-  --border-subtle: rgba(12, 12, 18, 0.09);
-  --border-strong: rgba(12, 12, 18, 0.2);
+  --bg-glass: rgba(246, 246, 248, 0.88);
+  --border-subtle: rgba(12, 12, 18, 0.1);
+  --border-strong: rgba(12, 12, 18, 0.24);
   --text-primary: #0b0b10;
   --text-secondary: #525260;
-  --text-muted: #646474;
+  --text-muted: #575766;
   --cta-bg: #0b0b10;
   --cta-text: #ffffff;
   --cta-hover: #24242f;
   --accent: #be123c;
-  --accent-soft: rgba(190, 18, 60, 0.09);
-  --accent-border: rgba(190, 18, 60, 0.32);
+  --accent-ink: #9f1239;
+  --accent-soft: #fff1f2;
+  --accent-border: rgba(190, 18, 60, 0.4);
   --success: #047857;
   --warning: #a14d0a;
+  --warning-solid: #9a3412;
   --danger: #b91c1c;
   --map-grid: rgba(12, 12, 18, 0.1);
   --modal-backdrop: rgba(15, 15, 25, 0.42);
   --shadow-elevated: 0 20px 50px -15px rgba(15, 15, 25, 0.14);
+
+  /* Semantic table states — strictly Light Mode, WCAG AA/AAA (>= 4.5:1) */
+  --status-available-bg: #ecfdf5;
+  --status-available-bg-hover: #d1fae5;
+  --status-available-border: #047857;
+  --status-available-fg: #065f46;
+  --status-available-pulse: rgba(4, 120, 87, 0.42);
+
+  --status-selected-bg: #be123c;
+  --status-selected-border: #ffffff;
+  --status-selected-fg: #ffffff;
+
+  --status-pending-bg: #fef3c7;
+  --status-pending-stripe: rgba(180, 83, 9, 0.14);
+  --status-pending-border: #b45309;
+  --status-pending-fg: #7c2d12;
+  --status-pending-pulse: rgba(180, 83, 9, 0.44);
+
+  --status-sold-bg: #e2e8f0;
+  --status-sold-surface: #f1f5f9;
+  --status-sold-hatch: rgba(51, 65, 85, 0.13);
+  --status-sold-border: #475569;
+  --status-sold-fg: #334155;
+  --status-sold-pulse: rgba(71, 85, 105, 0.4);
+
+  /* Motion tokens */
+  --motion-fast: 150ms;
+  --motion-state: 280ms;
+  --motion-sheet: 260ms;
+  --motion-pulse: 1400ms;
 }
 
 @layer base {
@@ -149,12 +181,75 @@
   }
 }
 
+/* Non-color surface patterns for table states (colorblind-safe) */
+.table-pattern-pending {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent 0 4px,
+    var(--status-pending-stripe) 4px 8px
+  );
+}
+
+.table-pattern-sold {
+  background-image:
+    repeating-linear-gradient(
+      45deg,
+      transparent 0 4px,
+      var(--status-sold-hatch) 4px 6px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      transparent 0 4px,
+      var(--status-sold-hatch) 4px 6px
+    );
+}
+
+/* Real-time SSE transition pulses (GPU-only transform + opacity, zero CLS) */
+@keyframes sse-ring-expand {
+  0% {
+    opacity: 0.95;
+    transform: scale(0.95);
+  }
+  70% {
+    opacity: 0.35;
+    transform: scale(1.65);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.9);
+  }
+}
+
+@keyframes sse-card-highlight {
+  0% {
+    box-shadow: 0 0 0 0 var(--sse-flash-color, var(--status-available-pulse));
+  }
+  35% {
+    box-shadow: 0 0 0 4px var(--sse-flash-color, var(--status-available-pulse));
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+.animate-sse-ring {
+  animation: sse-ring-expand var(--motion-pulse) cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-sse-card {
+  animation: sse-card-highlight var(--motion-pulse) ease-out both;
+}
+
 .animate-fade-in {
   animation: fade-in 0.2s ease-out both;
 }
 
 .animate-pop-in {
   animation: pop-in 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+
+.table-sheet-in {
+  animation: sheet-in var(--motion-sheet) cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
 .checkout-drawer {
@@ -169,8 +264,11 @@
 
 @media (prefers-reduced-motion: reduce) {
   .checkout-drawer,
+  .table-sheet-in,
   .animate-fade-in,
-  .animate-pop-in {
+  .animate-pop-in,
+  .animate-sse-ring,
+  .animate-sse-card {
     animation: none;
   }
 }

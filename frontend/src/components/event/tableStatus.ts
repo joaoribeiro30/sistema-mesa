@@ -2,6 +2,19 @@ import type { EventTable, TableAvailabilityStatus } from '@/types/api';
 
 export type VisualTableState = 'AVAILABLE' | 'SELECTED' | 'RESERVED' | 'SOLD';
 
+export type DomainVisualStatus =
+  | 'AVAILABLE'
+  | 'SELECTED'
+  | 'PENDING_PAYMENT'
+  | 'SOLD';
+
+export type RecentTableUpdateKind = 'locked' | 'released' | 'sold';
+
+export interface RecentTableUpdate {
+  kind: RecentTableUpdateKind;
+  seq: number;
+}
+
 export function getVisualTableState(
   table: EventTable,
   isSelected: boolean,
@@ -15,49 +28,80 @@ export function getVisualTableState(
 export const TABLE_STATUS_META: Record<
   VisualTableState,
   {
+    domainStatus: DomainVisualStatus;
     label: string;
     shortLabel: string;
+    description: string;
     dotClass: string;
+    swatchClass: string;
     badgeClass: string;
     markerClass: string;
   }
 > = {
   AVAILABLE: {
-    label: 'Livre / Disponível',
+    domainStatus: 'AVAILABLE',
+    label: 'Disponível',
     shortLabel: 'Disponível',
-    dotClass: 'bg-emerald-500',
+    description: 'Livre para seleção imediata.',
+    dotClass: 'bg-[var(--status-available-border)]',
+    swatchClass:
+      'border-2 border-[var(--status-available-border)] bg-[var(--status-available-bg)] text-[var(--status-available-fg)]',
     badgeClass:
-      'border-emerald-500/35 bg-emerald-500/12 text-emerald-700',
+      'border-[var(--status-available-border)]/45 bg-[var(--status-available-bg)] text-[var(--status-available-fg)]',
     markerClass:
-      'border-emerald-600 bg-emerald-100 text-emerald-950 group-hover:bg-emerald-200',
+      'border-2 border-[var(--status-available-border)] bg-[var(--status-available-bg)] text-[var(--status-available-fg)] shadow-xs group-hover:bg-[var(--status-available-bg-hover)]',
   },
   SELECTED: {
-    label: 'Selecionada',
+    domainStatus: 'SELECTED',
+    label: 'Selecionada por você',
     shortLabel: 'Selecionada',
-    dotClass: 'bg-[var(--accent)]',
+    description: 'Na sua seleção atual. Avance para bloquear e pagar.',
+    dotClass: 'bg-[var(--status-selected-bg)]',
+    swatchClass:
+      'border-2 border-white bg-[var(--status-selected-bg)] text-[var(--status-selected-fg)] ring-1 ring-[var(--status-selected-bg)]',
     badgeClass:
-      'border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent)]',
+      'border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent-ink)]',
     markerClass:
-      'border-white bg-[var(--accent)] text-white ring-1 ring-[var(--accent)]',
+      'border-2 border-[var(--status-selected-border)] bg-[var(--status-selected-bg)] text-[var(--status-selected-fg)] ring-2 ring-[var(--status-selected-bg)] shadow-sm',
   },
   RESERVED: {
-    label: 'Pendente / Reservada',
-    shortLabel: 'Reservada',
-    dotClass: 'bg-amber-500',
+    domainStatus: 'PENDING_PAYMENT',
+    label: 'Pagamento pendente',
+    shortLabel: 'Pag. pendente',
+    description: 'Em processo de pagamento por outro comprador.',
+    dotClass: 'bg-[var(--status-pending-border)]',
+    swatchClass:
+      'border-2 border-dashed border-[var(--status-pending-border)] bg-[var(--status-pending-bg)] text-[var(--status-pending-fg)] table-pattern-pending',
     badgeClass:
-      'border-amber-500/35 bg-amber-500/12 text-amber-700',
+      'border-[var(--status-pending-border)]/55 bg-[var(--status-pending-bg)] text-[var(--status-pending-fg)] table-pattern-pending',
     markerClass:
-      'border-dashed border-amber-600 bg-amber-100 text-amber-950',
+      'border-2 border-dashed border-[var(--status-pending-border)] bg-[var(--status-pending-bg)] text-[var(--status-pending-fg)] table-pattern-pending',
   },
   SOLD: {
+    domainStatus: 'SOLD',
     label: 'Vendida',
     shortLabel: 'Vendida',
-    dotClass: 'bg-zinc-500',
+    description: 'Mesa confirmada e indisponível para novas reservas.',
+    dotClass: 'bg-[var(--status-sold-border)]',
+    swatchClass:
+      'border-[1.5px] border-[var(--status-sold-border)] bg-[var(--status-sold-bg)] text-[var(--status-sold-fg)] table-pattern-sold',
     badgeClass:
-      'border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-muted)]',
+      'border-[var(--status-sold-border)]/45 bg-[var(--status-sold-surface)] text-[var(--status-sold-fg)] table-pattern-sold',
     markerClass:
-      'border-zinc-500 bg-zinc-200 text-zinc-800',
+      'border-[1.5px] border-[var(--status-sold-border)] bg-[var(--status-sold-bg)] text-[var(--status-sold-fg)] table-pattern-sold',
   },
+};
+
+export const SSE_RING_CLASS: Record<RecentTableUpdateKind, string> = {
+  released: 'border-[var(--status-available-border)] bg-[var(--status-available-pulse)]',
+  locked: 'border-[var(--status-pending-border)] bg-[var(--status-pending-pulse)]',
+  sold: 'border-[var(--status-sold-border)] bg-[var(--status-sold-pulse)]',
+};
+
+export const SSE_CARD_FLASH_COLOR: Record<RecentTableUpdateKind, string> = {
+  released: 'var(--status-available-pulse)',
+  locked: 'var(--status-pending-pulse)',
+  sold: 'var(--status-sold-pulse)',
 };
 
 export function formatExpiryTime(expiresAt: string | null): string | null {

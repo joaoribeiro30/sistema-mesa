@@ -33,8 +33,8 @@ import {
 } from '@/components/event/SelectionBar';
 import {
   isTableSelectable,
-  TABLE_STATUS_META,
-  type VisualTableState,
+  type RecentTableUpdate,
+  type RecentTableUpdateKind,
 } from '@/components/event/tableStatus';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -42,6 +42,7 @@ import {
   type TableStreamEventType,
 } from '@/hooks/useEventTableStream';
 import {
+  ApiError,
   eventsApi,
   generateIdempotencyKey,
   getFriendlyErrorMessage,
@@ -58,12 +59,12 @@ import type {
 
 type ActiveViewMode = 'MAP' | 'LIST';
 
-const LEGEND_STATES: VisualTableState[] = [
-  'AVAILABLE',
-  'SELECTED',
-  'RESERVED',
-  'SOLD',
-];
+interface LiveNoticeBanner {
+  message: string;
+  tone: 'info' | 'warning' | 'success';
+}
+
+const SSE_HIGHLIGHT_MS = 1600;
 
 function chooseInitialViewMode(detail: EventDetail): ActiveViewMode {
   if (detail.displayMode === 'MAP') return 'MAP';
@@ -95,8 +96,16 @@ export function EventDetailPage() {
 
   const [submittingReservation, setSubmittingReservation] = useState(false);
   const [reservationError, setReservationError] = useState<string | null>(null);
-  const [liveNotice, setLiveNotice] = useState<string | null>(null);
+  const [liveNotice, setLiveNotice] = useState<LiveNoticeBanner | null>(null);
+  const [recentTableUpdates, setRecentTableUpdates] = useState<
+    Record<string, RecentTableUpdate>
+  >({});
   const [copiedLink, setCopiedLink] = useState(false);
+
+  const tableLabelsRef = useRef<Map<string, string>>(new Map());
+  const sseSeqRef = useRef(0);
+  const sseTimersRef = useRef<Record<string, number>>({});
+  const ownActionUntilRef = useRef<Record<string, number>>({});
 
   const [lockedReservations, setLockedReservations] = useState<
     LockedReservationSummary[]
@@ -141,7 +150,10 @@ export function EventDetailPage() {
           setError(getFriendlyErrorMessage(err));
           setEvent(null);
         } else {
-          setLiveNotice(getFriendlyErrorMessage(err));
+          setLiveNotice({
+            message: getFriendlyErrorMessage(err),
+            tone: 'warning',
+          });
         }
       } finally {
         if (!silent) setLoading(false);
@@ -154,79 +166,122 @@ export function EventDetailPage() {
     void loadEvent(false);
   }, [loadEvent]);
 
-  // Helper to find a table's label for user-friendly SSE notices
-  const findTableLabel = useCallback(
-    (currentEvent: EventDetail | null, tableId: string): string => {
-      if (!currentEvent) return 'selecionada';
-      for (const sector of currentEvent.sectors) {
-        const found = sector.tables.find((t) => t.id === tableId);
-        if (found) return found.label;
+  // Keep a synchronous lookup of table labels for SSE notifications
+  useEffect(() => {
+    const map = new Map<string, string>();
+    if (event) {
+      for (const sector of event.sectors) {
+        for (const table of sector.tables) {
+          map.set(table.id, table.label);
+        }
       }
-      return 'selecionada';
+    }
+    tableLabelsRef.current = map;
+  }, [event]);
+
+  // Clear pending SSE highlight timers on unmount
+  useEffect(() => {
+    const timers = sseTimersRef.current;
+    return () => {
+      for (const id of Object.keys(timers)) {
+        window.clearTimeout(timers[id]);
+      }
+    };
+  }, []);
+
+  const markRecentTableUpdate = useCallback(
+    (tableId: string, kind: RecentTableUpdateKind) => {
+      const existing = sseTimersRef.current[tableId];
+      if (existing !== undefined) {
+        window.clearTimeout(existing);
+      }
+
+      sseSeqRef.current += 1;
+      const seq = sseSeqRef.current;
+      setRecentTableUpdates((prev) => ({
+        ...prev,
+        [tableId]: { kind, seq },
+      }));
+
+      sseTimersRef.current[tableId] = window.setTimeout(() => {
+        delete sseTimersRef.current[tableId];
+        setRecentTableUpdates((prev) => {
+          if (prev[tableId]?.seq !== seq) return prev;
+          const next = { ...prev };
+          delete next[tableId];
+          return next;
+        });
+      }, SSE_HIGHLIGHT_MS);
     },
     [],
   );
 
   // Apply SSE snapshot cleanly
-  const handleSseSnapshot = useCallback(
-    (snapshotTables: SseTableState[]) => {
-      const stateById = new Map(snapshotTables.map((t) => [t.tableId, t]));
-      const newlyUnavailableIds: string[] = [];
+  const handleSseSnapshot = useCallback((snapshotTables: SseTableState[]) => {
+    const stateById = new Map(snapshotTables.map((t) => [t.tableId, t]));
+    const newlyUnavailableIds: string[] = [];
 
-      setEvent((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          sectors: prev.sectors.map((sector) => ({
-            ...sector,
-            tables: sector.tables.map((table) => {
-              const incoming = stateById.get(table.id);
-              if (!incoming) return table;
-              if (!incoming.available || incoming.status !== 'AVAILABLE') {
-                newlyUnavailableIds.push(table.id);
-              }
-              return {
-                ...table,
-                status: incoming.status,
-                available: incoming.available,
-                expiresAt: incoming.expiresAt,
-              };
-            }),
-          })),
-        };
-      });
-
-      if (newlyUnavailableIds.length > 0) {
-        setSelectedMap((prev) => {
-          let changed = false;
-          const next = { ...prev };
-          for (const id of newlyUnavailableIds) {
-            if (id in next) {
-              delete next[id];
-              delete idempotencyKeysRef.current[id];
-              changed = true;
+    setEvent((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        sectors: prev.sectors.map((sector) => ({
+          ...sector,
+          tables: sector.tables.map((table) => {
+            const incoming = stateById.get(table.id);
+            if (!incoming) return table;
+            if (!incoming.available || incoming.status !== 'AVAILABLE') {
+              newlyUnavailableIds.push(table.id);
             }
+            return {
+              ...table,
+              status: incoming.status,
+              available: incoming.available,
+              expiresAt: incoming.expiresAt,
+            };
+          }),
+        })),
+      };
+    });
+
+    if (newlyUnavailableIds.length > 0) {
+      setSelectedMap((prev) => {
+        let changed = false;
+        const next = { ...prev };
+        for (const id of newlyUnavailableIds) {
+          if (id in next) {
+            delete next[id];
+            delete idempotencyKeysRef.current[id];
+            changed = true;
           }
-          if (changed) {
-            setLiveNotice(
+        }
+        if (changed) {
+          setLiveNotice({
+            message:
               'Uma ou mais mesas da sua seleção ficaram indisponíveis e foram removidas.',
-            );
-          }
-          return changed ? next : prev;
-        });
-      }
-    },
-    [],
-  );
+            tone: 'warning',
+          });
+        }
+        return changed ? next : prev;
+      });
+    }
+  }, []);
 
   // Apply single SSE event (table.locked, table.released, table.sold)
   const handleSseTableEvent = useCallback(
     (eventType: TableStreamEventType, payload: SseTableUpdatePayload) => {
-      let affectedLabel: string | null = null;
+      const affectedLabel = tableLabelsRef.current.get(payload.tableId) ?? '';
+      const updateKind: RecentTableUpdateKind =
+        eventType === 'table.released'
+          ? 'released'
+          : eventType === 'table.sold'
+            ? 'sold'
+            : 'locked';
+
+      markRecentTableUpdate(payload.tableId, updateKind);
 
       setEvent((prev) => {
         if (!prev) return prev;
-        affectedLabel = findTableLabel(prev, payload.tableId);
         return {
           ...prev,
           sectors: prev.sectors.map((sector) => ({
@@ -245,27 +300,49 @@ export function EventDetailPage() {
         };
       });
 
+      const isOwnRecentAction =
+        (ownActionUntilRef.current[payload.tableId] ?? 0) > Date.now();
+      const tableTag = affectedLabel ? `Mesa ${affectedLabel}` : 'Uma mesa';
+
       if (
         eventType === 'table.locked' ||
         eventType === 'table.sold' ||
         !payload.available
       ) {
+        let removedFromSelection = false;
         setSelectedMap((prev) => {
           if (!(payload.tableId in prev)) return prev;
+          removedFromSelection = true;
           const next = { ...prev };
           delete next[payload.tableId];
           delete idempotencyKeysRef.current[payload.tableId];
 
           const actionWord =
             eventType === 'table.sold' ? 'vendida' : 'reservada';
-          setLiveNotice(
-            `A mesa ${affectedLabel ?? ''} acabou de ser ${actionWord} em tempo real e foi removida da sua seleção.`,
-          );
+          setLiveNotice({
+            message: `${tableTag} acabou de ser ${actionWord} em tempo real e foi removida da sua seleção.`,
+            tone: 'warning',
+          });
           return next;
+        });
+
+        if (!removedFromSelection && !isOwnRecentAction) {
+          setLiveNotice({
+            message:
+              eventType === 'table.sold'
+                ? `${tableTag} foi vendida agora.`
+                : `${tableTag} entrou em pagamento pendente.`,
+            tone: 'info',
+          });
+        }
+      } else if (eventType === 'table.released' && !isOwnRecentAction) {
+        setLiveNotice({
+          message: `${tableTag} foi liberada e está disponível agora.`,
+          tone: 'success',
         });
       }
     },
-    [findTableLabel],
+    [markRecentTableUpdate],
   );
 
   const { status: streamStatus, reconnect: reconnectStream } =
@@ -354,6 +431,8 @@ export function EventDetailPage() {
     setSubmittingReservation(true);
 
     const created: LockedReservationSummary[] = [];
+    const unavailableIds: string[] = [];
+    const unavailableLabels: string[] = [];
     const failures: string[] = [];
 
     for (const entry of selectedItems) {
@@ -376,9 +455,14 @@ export function EventDetailPage() {
           sectorName: entry.sector.name,
         });
       } catch (err) {
-        failures.push(
-          `Mesa ${entry.table.label}: ${getFriendlyErrorMessage(err)}`,
-        );
+        if (err instanceof ApiError && err.code === 'TABLE_UNAVAILABLE') {
+          unavailableIds.push(entry.table.id);
+          unavailableLabels.push(entry.table.label);
+        } else {
+          failures.push(
+            `Mesa ${entry.table.label}: ${getFriendlyErrorMessage(err)}`,
+          );
+        }
       }
     }
 
@@ -386,6 +470,10 @@ export function EventDetailPage() {
       const createdByTableId = new Map(
         created.map((c) => [c.reservation.tableId, c.reservation]),
       );
+
+      for (const c of created) {
+        ownActionUntilRef.current[c.reservation.tableId] = Date.now() + 4000;
+      }
 
       // Optimistically reflect locked status (SSE will also broadcast table.locked)
       setEvent((prev) => {
@@ -421,6 +509,43 @@ export function EventDetailPage() {
       setLockedReservations((prev) => [...prev, ...created]);
     }
 
+    if (unavailableIds.length > 0) {
+      const unavailableSet = new Set(unavailableIds);
+      setSelectedMap((prev) => {
+        const next = { ...prev };
+        for (const id of unavailableIds) {
+          delete next[id];
+          delete idempotencyKeysRef.current[id];
+        }
+        return next;
+      });
+      setEvent((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          sectors: prev.sectors.map((sector) => ({
+            ...sector,
+            tables: sector.tables.map((t) =>
+              unavailableSet.has(t.id)
+                ? { ...t, status: 'RESERVED', available: false }
+                : t,
+            ),
+          })),
+        };
+      });
+      for (const id of unavailableIds) {
+        markRecentTableUpdate(id, 'locked');
+      }
+      // Sync authoritative statuses silently so the user sees fresh availability right away
+      void loadEvent(true);
+
+      const conflictMessage =
+        unavailableLabels.length === 1
+          ? `A mesa ${unavailableLabels[0]} acabou de ser ocupada por outra pessoa e foi removida da sua seleção. Escolha outra mesa livre abaixo.`
+          : `As mesas ${unavailableLabels.join(', ')} acabaram de ser ocupadas por outra pessoa e foram removidas da sua seleção. Escolha outras mesas livres abaixo.`;
+      failures.unshift(conflictMessage);
+    }
+
     if (failures.length > 0) {
       setReservationError(failures.join(' · '));
     }
@@ -431,7 +556,10 @@ export function EventDetailPage() {
   const handleReservationPaid = useCallback(
     (reservationId: string) => {
       setPaidReservationIds((prev) => new Set(prev).add(reservationId));
-      setLiveNotice('Pagamento confirmado! Seu ingresso digital já está disponível.');
+      setLiveNotice({
+        message: 'Pagamento confirmado! Seu ingresso digital já está disponível.',
+        tone: 'success',
+      });
       // SSE broadcasts table.sold as well; refresh silently to be safe.
       void loadEvent(true);
     },
@@ -440,12 +568,22 @@ export function EventDetailPage() {
 
   async function handleCancelLockedReservation(reservationId: string) {
     setCancellingReservationId(reservationId);
+    const matching = lockedReservations.find(
+      (item) => item.reservation.id === reservationId,
+    );
+    if (matching) {
+      ownActionUntilRef.current[matching.reservation.tableId] =
+        Date.now() + 4000;
+    }
     try {
       await reservationsApi.cancel(reservationId);
       setLockedReservations((prev) =>
         prev.filter((item) => item.reservation.id !== reservationId),
       );
-      setLiveNotice('Bloqueio cancelado e mesa liberada novamente.');
+      setLiveNotice({
+        message: 'Bloqueio cancelado e mesa liberada novamente.',
+        tone: 'success',
+      });
     } catch (err) {
       setReservationError(getFriendlyErrorMessage(err));
     } finally {
@@ -488,7 +626,7 @@ export function EventDetailPage() {
         <div className="mt-6 flex items-center justify-center gap-3">
           <Link
             to="/"
-            className="inline-flex items-center gap-2 rounded-full bg-[var(--cta-bg)] px-5 py-2.5 text-xs font-semibold text-[var(--cta-text)]"
+            className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[var(--cta-bg)] px-5 py-2.5 text-xs font-semibold text-[var(--cta-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--text-primary)]"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             Voltar ao catálogo
@@ -496,7 +634,7 @@ export function EventDetailPage() {
           <button
             type="button"
             onClick={() => void loadEvent(false)}
-            className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-[var(--border-strong)] bg-[var(--bg-surface)] px-5 py-2.5 text-xs font-semibold text-[var(--text-primary)]"
+            className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full border border-[var(--border-strong)] bg-[var(--bg-surface)] px-5 py-2.5 text-xs font-semibold text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--text-primary)]"
           >
             <RefreshCw className="h-3.5 w-3.5" />
             Tentar novamente
@@ -530,7 +668,7 @@ export function EventDetailPage() {
             onClick={handleShareLink}
             aria-label={copiedLink ? 'Link copiado' : 'Compartilhar'}
             title={copiedLink ? 'Link copiado' : 'Compartilhar'}
-            className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"
+            className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--text-primary)]"
           >
             {copiedLink
               ? <Check className="h-4 w-4 text-[var(--success)]" />
@@ -562,22 +700,32 @@ export function EventDetailPage() {
               <button
                 type="button"
                 onClick={reconnectStream}
-                className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-full border border-[var(--danger)]/35 bg-[var(--danger)]/10 px-2.5 text-[11px] font-semibold text-[var(--danger)] hover:bg-[var(--danger)]/20"
+                className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full border border-[var(--danger)]/40 bg-red-50 px-3.5 text-xs font-semibold text-[var(--danger)] transition-colors hover:bg-red-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--text-primary)]"
               >
-                <Radio className="h-3 w-3 shrink-0" />
+                <Radio className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                 Reconectar
               </button>
             ) : (
               <span
-                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-                  streamStatus === 'live' ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-800'
+                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap ${
+                  streamStatus === 'live'
+                    ? 'border-[var(--status-available-border)]/35 bg-[var(--status-available-bg)] text-[var(--status-available-fg)]'
+                    : 'border-[var(--status-pending-border)]/40 bg-[var(--status-pending-bg)] text-[var(--status-pending-fg)]'
                 }`}
               >
                 <span
                   aria-hidden="true"
-                  className={`h-1.5 w-1.5 rounded-full ${streamStatus === 'live' ? 'bg-emerald-600' : 'bg-amber-600'}`}
+                  className={`h-1.5 w-1.5 rounded-full ${
+                    streamStatus === 'live'
+                      ? 'bg-[var(--status-available-border)]'
+                      : 'bg-[var(--status-pending-border)]'
+                  }`}
                 />
-                {streamStatus === 'live' ? 'Ao vivo' : streamStatus === 'reconnecting' ? 'Reconectando…' : 'Conectando…'}
+                {streamStatus === 'live'
+                  ? 'Tempo real ativo'
+                  : streamStatus === 'reconnecting'
+                    ? 'Reconectando…'
+                    : 'Conectando…'}
               </span>
             )}
           </div>
@@ -594,13 +742,13 @@ export function EventDetailPage() {
                   role="tab"
                   aria-selected={effectiveViewMode === 'MAP'}
                   onClick={() => setViewMode('MAP')}
-                  className={`inline-flex min-h-11 cursor-pointer items-center justify-center gap-1.5 rounded-full px-1.5 text-xs font-semibold transition-colors md:px-3 ${
+                  className={`inline-flex min-h-11 cursor-pointer items-center justify-center gap-1.5 rounded-full px-1.5 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--text-primary)] md:px-3.5 ${
                     effectiveViewMode === 'MAP'
                       ? 'bg-[var(--cta-bg)] text-[var(--cta-text)]'
                       : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                   }`}
                 >
-                  <MapIcon className="h-3.5 w-3.5 shrink-0" />
+                  <MapIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                   Mapa Interativo
                 </button>
                 <button
@@ -608,13 +756,13 @@ export function EventDetailPage() {
                   role="tab"
                   aria-selected={effectiveViewMode === 'LIST'}
                   onClick={() => setViewMode('LIST')}
-                  className={`inline-flex min-h-11 cursor-pointer items-center justify-center gap-1.5 rounded-full px-1.5 text-xs font-semibold transition-colors md:px-3 ${
+                  className={`inline-flex min-h-11 cursor-pointer items-center justify-center gap-1.5 rounded-full px-1.5 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--text-primary)] md:px-3.5 ${
                     effectiveViewMode === 'LIST'
                       ? 'bg-[var(--cta-bg)] text-[var(--cta-text)]'
                       : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                   }`}
                 >
-                  <LayoutGrid className="h-3.5 w-3.5 shrink-0" />
+                  <LayoutGrid className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                   Lista por Setores
                 </button>
               </div>
@@ -626,15 +774,17 @@ export function EventDetailPage() {
               aria-expanded={filtersOpen}
               aria-controls="table-selection-filters"
               onClick={() => setFiltersOpen((open) => !open)}
-              className={`ml-auto inline-flex min-h-11 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border px-3 text-xs font-semibold transition-colors ${
+              className={`ml-auto inline-flex min-h-11 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border px-3.5 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--text-primary)] ${
                 hasActiveFilters
-                  ? 'border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent)]'
+                  ? 'border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent-ink)]'
                   : 'border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]'
               }`}
             >
-              <SlidersHorizontal className="h-3.5 w-3.5" />
+              <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
               Filtrar
-              {hasActiveFilters && <span aria-hidden="true" className="size-1.5 rounded-full bg-current" />}
+              {hasActiveFilters && (
+                <span aria-hidden="true" className="size-1.5 rounded-full bg-current" />
+              )}
             </button>
           </div>
         </div>
@@ -642,16 +792,20 @@ export function EventDetailPage() {
         <div
           id="table-selection-filters"
           hidden={!filtersOpen}
-          className="space-y-2.5 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-2.5 md:px-4 md:py-3"
+          className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-2.5 md:px-4 md:py-3"
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div role="group" aria-label="Filtrar por setor" className="flex min-w-0 flex-wrap items-center gap-1.5">
+            <div
+              role="group"
+              aria-label="Filtrar por setor"
+              className="flex min-w-0 flex-wrap items-center gap-2"
+            >
               <button
                 type="button"
                 aria-label="Todos os setores"
                 aria-pressed={activeSectorId === null}
                 onClick={() => setActiveSectorId(null)}
-                className={`min-h-9 cursor-pointer rounded-full border px-3 text-xs font-medium transition-colors ${
+                className={`min-h-11 cursor-pointer rounded-full border px-3.5 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--text-primary)] ${
                   activeSectorId === null
                     ? 'border-transparent bg-[var(--cta-bg)] text-[var(--cta-text)]'
                     : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
@@ -667,9 +821,9 @@ export function EventDetailPage() {
                     type="button"
                     aria-pressed={selected}
                     onClick={() => setActiveSectorId(selected ? null : sector.id)}
-                    className={`min-h-9 max-w-full cursor-pointer truncate rounded-full border px-3 text-xs font-medium transition-colors ${
+                    className={`min-h-11 max-w-full cursor-pointer truncate rounded-full border px-3.5 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--text-primary)] ${
                       selected
-                        ? 'border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent)]'
+                        ? 'border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent-ink)]'
                         : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                     }`}
                   >
@@ -679,70 +833,67 @@ export function EventDetailPage() {
               })}
             </div>
 
-            <label className="inline-flex min-h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-3 text-xs font-medium text-[var(--text-primary)] select-none">
+            <label className="inline-flex min-h-11 shrink-0 cursor-pointer items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-3.5 text-xs font-semibold text-[var(--text-primary)] select-none">
               <input
                 type="checkbox"
                 checked={onlyAvailable}
                 onChange={(e) => setOnlyAvailable(e.target.checked)}
-                className="h-3.5 w-3.5 accent-[var(--accent)]"
+                className="h-4 w-4 accent-[var(--accent)]"
               />
               Somente livres
             </label>
           </div>
-
-          <ul
-            aria-label="Legenda de status das mesas"
-            className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-[var(--border-subtle)] pt-2.5 text-[11px] font-medium text-[var(--text-secondary)]"
-          >
-            {LEGEND_STATES.map((state) => {
-              const meta = TABLE_STATUS_META[state];
-              return (
-                <li key={state} className="inline-flex items-center gap-1">
-                  <span aria-hidden="true" className={`h-2 w-2 rounded-full ${meta.dotClass}`} />
-                  {meta.shortLabel}
-                </li>
-              );
-            })}
-          </ul>
         </div>
 
-        {/* Live SSE / Reservation Notifications */}
-        {liveNotice && (
-          <div
-            role="status"
-            className="flex items-center justify-between gap-3 rounded-2xl border border-amber-500/35 bg-amber-500/10 px-4 py-3 text-xs font-medium text-amber-700"
-          >
-            <span className="flex items-center gap-2">
-              <Radio className="h-4 w-4 shrink-0" />
-              {liveNotice}
-            </span>
-            <button
-              type="button"
-              onClick={() => setLiveNotice(null)}
-              aria-label="Dispensar aviso"
-              className="cursor-pointer rounded-full p-1 hover:bg-amber-500/15"
+        {/* Floating Live SSE Toast (fixed overlay — zero layout shift) */}
+        <div
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          className="pointer-events-none fixed top-[68px] left-1/2 z-50 w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 md:top-20 md:right-6 md:left-auto md:w-auto md:translate-x-0"
+        >
+          {liveNotice && (
+            <div
+              className={`animate-fade-in pointer-events-auto flex items-center justify-between gap-2 rounded-2xl border py-1.5 pr-1.5 pl-3.5 text-xs font-semibold shadow-[var(--shadow-elevated)] ${
+                liveNotice.tone === 'success'
+                  ? 'border-[var(--status-available-border)]/45 bg-[var(--status-available-bg)] text-[var(--status-available-fg)]'
+                  : liveNotice.tone === 'warning'
+                    ? 'border-[var(--status-pending-border)]/50 bg-[var(--status-pending-bg)] text-[var(--status-pending-fg)]'
+                    : 'border-[var(--border-strong)] bg-[var(--bg-surface)] text-[var(--text-primary)]'
+              }`}
             >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        )}
+              <span className="flex items-center gap-2">
+                <Radio className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span>{liveNotice.message}</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setLiveNotice(null)}
+                aria-label="Dispensar aviso"
+                className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full transition-colors hover:bg-black/5 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--text-primary)]"
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
+          )}
+        </div>
 
         {reservationError && (
           <div
             role="alert"
-            className="flex items-start justify-between gap-3 rounded-2xl border border-[var(--danger)]/35 bg-[var(--danger)]/10 px-4 py-3 text-xs leading-relaxed text-[var(--danger)]"
+            className="flex items-center justify-between gap-2 rounded-2xl border border-[var(--danger)]/40 bg-red-50 py-1.5 pr-1.5 pl-4 text-xs leading-relaxed font-medium text-[var(--danger)]"
           >
-            <span className="flex items-start gap-2">
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span className="flex items-start gap-2 py-1.5">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
               <span>{reservationError}</span>
             </span>
             <button
               type="button"
               onClick={() => setReservationError(null)}
               aria-label="Fechar erro"
-              className="cursor-pointer rounded-full p-1 hover:bg-[var(--danger)]/15"
+              className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full transition-colors hover:bg-[var(--danger)]/15 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--text-primary)]"
             >
-              <X className="h-3.5 w-3.5" />
+              <X className="h-4 w-4" aria-hidden="true" />
             </button>
           </div>
         )}
@@ -760,6 +911,7 @@ export function EventDetailPage() {
             selectedTableIds={selectedTableIds}
             activeSectorId={activeSectorId}
             onlyAvailable={onlyAvailable}
+            recentTableUpdates={recentTableUpdates}
             onToggleTable={handleToggleTable}
           />
         ) : (
@@ -769,13 +921,14 @@ export function EventDetailPage() {
             selectedTableIds={selectedTableIds}
             activeSectorId={activeSectorId}
             onlyAvailable={onlyAvailable}
+            recentTableUpdates={recentTableUpdates}
             onToggleTable={handleToggleTable}
           />
         )}
       </section>
 
       <details className="group rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] md:rounded-3xl">
-        <summary className="flex min-h-12 cursor-pointer list-none items-center gap-2.5 rounded-2xl px-4 text-sm font-semibold hover:bg-[var(--bg-elevated)] md:px-6 [&::-webkit-details-marker]:hidden">
+        <summary className="flex min-h-12 cursor-pointer list-none items-center gap-2.5 rounded-2xl px-4 text-sm font-semibold hover:bg-[var(--bg-elevated)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--text-primary)] md:px-6 [&::-webkit-details-marker]:hidden">
           <ShieldCheck className="h-4 w-4 text-[var(--accent)]" />
           Regras da reserva
           <ChevronDown className="ml-auto h-4 w-4 text-[var(--text-muted)] transition-transform group-open:rotate-180" />

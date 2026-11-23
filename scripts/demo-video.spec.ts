@@ -10,7 +10,7 @@ import {
   getAdminCredentials,
   resetLocalRateLimits,
   sendSignedMockWebhook,
-} from './helpers';
+} from '../e2e/helpers';
 
 const DEMO_BASE_URL = 'http://localhost:5173';
 const DEMO_VIDEO_OUTPUT = resolve(
@@ -194,13 +194,16 @@ async function humanMove(
   locator: Locator,
   steps = 35,
 ): Promise<{ x: number; y: number }> {
-  await expect(locator).toBeVisible();
-  await locator.evaluate((el) =>
-    el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' }),
+  await expect(locator).toBeVisible({ timeout: 15_000 });
+  await locator.evaluate(
+    (el) =>
+      el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' }),
+    undefined,
+    { timeout: 5_000 },
   );
   await page.waitForTimeout(550);
 
-  const box = await locator.boundingBox();
+  const box = await locator.boundingBox({ timeout: 5_000 });
   if (!box) {
     throw new Error('Não foi possível obter a área do elemento para mover o cursor.');
   }
@@ -210,7 +213,7 @@ async function humanMove(
   await page.mouse.move(x, y, { steps });
 
   // Re-verify position in case a toast banner dismissed or smooth scroll settled during glide
-  const freshBox = await locator.boundingBox();
+  const freshBox = await locator.boundingBox({ timeout: 2_000 }).catch(() => null);
   if (freshBox) {
     const fx = freshBox.x + freshBox.width / 2;
     const fy = freshBox.y + freshBox.height / 2;
@@ -234,9 +237,7 @@ async function humanMoveAndClick(
   steps = 35,
 ): Promise<void> {
   await humanMove(page, locator, steps);
-  await page.mouse.down();
-  await page.waitForTimeout(140);
-  await page.mouse.up();
+  await locator.click({ delay: 140 });
 }
 
 /**
@@ -564,13 +565,11 @@ test.describe('Demonstração Visual — Sistema Mesa (Vídeo 1280x720)', () => 
       });
       expect(webhookRes.status).toBe(200);
 
-      await humanMoveAndClick(
-        page,
-        page.getByRole('button', { name: /Já paguei, verificar status/ }),
-      );
-      await expect(
-        page.getByRole('heading', { name: 'Pagamento confirmado!' }),
-      ).toBeVisible();
+      // Wait for automatic Pix polling in CheckoutDrawer to detect confirmation live
+      const confirmedHeading = page.getByRole('heading', {
+        name: 'Pagamento confirmado!',
+      });
+      await expect(confirmedHeading).toBeVisible({ timeout: 12_000 });
       await page.waitForTimeout(2200);
 
       // Close checkout drawer -> ReservationLockModal shows "Pago"

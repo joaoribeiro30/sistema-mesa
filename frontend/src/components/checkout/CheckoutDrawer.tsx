@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
 import {
   AlertCircle,
   AlertTriangle,
@@ -83,7 +84,7 @@ interface CheckoutDrawerProps {
   onBackToEvent?: () => void;
 }
 
-type Phase = 'form' | 'processing' | 'awaiting' | 'success' | 'expired' | 'refund';
+type Phase = 'form' | 'processing' | 'awaiting' | 'success' | 'expired' | 'conflict' | 'refund';
 
 const POLL_INTERVAL_MS: Record<PaymentMethod, number> = {
   PIX: 4000,
@@ -161,7 +162,7 @@ export function CheckoutDrawer({
   const [touched, setTouched] = useState<Partial<Record<keyof CardFormValues, boolean>>>({});
   const [remoteInstallments, setRemoteInstallments] = useState<InstallmentOption[] | null>(null);
 
-  const terminal = phase === 'success' || phase === 'refund';
+  const terminal = phase === 'success' || phase === 'refund' || phase === 'conflict';
   const countdown = useCountdown(reservation.expiresAt, !terminal && !alreadyConfirmed);
   const paidNotifiedRef = useRef(false);
   const mountedRef = useRef(true);
@@ -450,6 +451,14 @@ export function CheckoutDrawer({
         patchCheckoutSession(reservationId, { idempotencyKey: undefined, signature: undefined });
       }
 
+      if (apiErr?.code === 'TABLE_UNAVAILABLE') {
+        setPhase('conflict');
+        setError(null);
+        clearCheckoutSession(reservationId);
+        onExpired?.(reservationId);
+        return;
+      }
+
       if (apiErr?.code === 'RESERVATION_INACTIVE' || expiredHandledRef.current) {
         setPhase('expired');
         clearCheckoutSession(reservationId);
@@ -465,7 +474,7 @@ export function CheckoutDrawer({
         setError(apiErr.message || declinedMessage(input.method));
       } else if (apiErr?.code === 'PAYMENT_IN_PROGRESS') {
         setError(
-          'Já existe uma cobrança pendente para esta reserva. Conclua o pagamento iniciado (ex.: Pix gerado anteriormente) ou aguarde sua expiração antes de tentar outro método.',
+          'Já existe uma cobrança pendente para esta reserva. Conclua o pagamento iniciado (ex.: Pix gerado anteriormente) ou aguarde sua atualização antes de tentar outro método.',
         );
       } else if (apiErr?.code === 'IDEMPOTENCY_KEY_CONFLICT') {
         setError('Esta tentativa conflitou com uma anterior. Envie novamente para gerar uma nova cobrança.');
@@ -572,13 +581,13 @@ export function CheckoutDrawer({
   // Render helpers
   // ---------------------------------------------------------------------------
   const fieldClass = (hasError: boolean) =>
-    `w-full rounded-xl border bg-[var(--bg-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none transition-colors focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent-soft)] disabled:opacity-60 ${
+    `min-h-11 w-full rounded-xl border bg-[var(--bg-elevated)] px-3.5 py-2.5 text-base text-[var(--text-primary)] placeholder:text-[var(--text-muted)] transition-colors focus:border-[var(--accent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--text-primary)] disabled:opacity-60 sm:text-sm ${
       hasError ? 'border-[var(--danger)]' : 'border-[var(--border-subtle)]'
     }`;
 
   const fieldError = (key: keyof CardFormValues) =>
     touched[key] && cardErrors[key] ? (
-      <p className="mt-1 text-[11px] text-[var(--danger)]">{cardErrors[key]}</p>
+      <p className="mt-1 text-xs font-medium text-[var(--danger)]">{cardErrors[key]}</p>
     ) : null;
 
   return (
@@ -592,130 +601,169 @@ export function CheckoutDrawer({
         role="dialog"
         aria-modal="true"
         aria-labelledby="checkout-title"
-        className="checkout-drawer flex max-h-[94vh] w-full flex-col overflow-hidden rounded-t-3xl border border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-[var(--shadow-elevated)] sm:h-full sm:max-h-none sm:max-w-md sm:rounded-none sm:rounded-l-3xl"
+        className="checkout-drawer flex max-h-[94dvh] w-full flex-col overflow-hidden rounded-t-3xl border border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-[var(--shadow-elevated)] sm:h-full sm:max-h-none sm:max-w-md sm:rounded-none sm:rounded-l-3xl"
       >
-        {/* Header */}
-        <header className="flex items-start justify-between gap-3 border-b border-[var(--border-subtle)] px-5 py-4">
-          <div className="min-w-0">
-            <p className="text-[11px] font-semibold tracking-[0.18em] text-[var(--accent)] uppercase">
-              Checkout seguro
-            </p>
-            <h2
-              id="checkout-title"
-              className="font-display mt-0.5 truncate text-lg font-bold text-[var(--text-primary)]"
+        {/* Sticky Top Header + 10-Minute Countdown (always visible during scroll) */}
+        <div className="sticky top-0 z-20 shrink-0 bg-[var(--bg-surface)]">
+          <header className="flex items-start justify-between gap-3 border-b border-[var(--border-subtle)] px-5 py-3.5">
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold tracking-[0.18em] text-[var(--accent-ink)] uppercase">
+                Checkout seguro
+              </p>
+              <h2
+                id="checkout-title"
+                className="font-display mt-0.5 truncate text-lg font-bold text-[var(--text-primary)]"
+              >
+                {context.eventTitle}
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={phase === 'processing'}
+              aria-label="Fechar checkout"
+              className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {context.eventTitle}
-            </h2>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={phase === 'processing'}
-            aria-label="Fechar checkout"
-            className="cursor-pointer rounded-full p-1.5 text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </header>
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </header>
 
-        {/* Countdown */}
-        {showCountdown && (
-          <div
-            className={`border-b border-[var(--border-subtle)] px-5 py-3 ${
-              countdown.expired
-                ? 'bg-[var(--danger)]/10'
-                : urgent
-                  ? 'bg-[var(--danger)]/8'
-                  : 'bg-amber-500/10'
-            }`}
-            role="timer"
-            aria-live={urgent ? 'assertive' : 'off'}
-          >
-            <div className="flex items-center justify-between gap-3">
-              <span
-                className={`inline-flex items-center gap-2 text-xs font-medium ${
-                  countdown.expired || urgent
-                    ? 'text-[var(--danger)]'
-                    : 'text-amber-700'
-                }`}
-              >
-                <Clock className="h-4 w-4 shrink-0" />
-                {countdown.expired ? 'Tempo esgotado' : 'Sua mesa está reservada por'}
-              </span>
-              <span
-                className={`font-mono-num rounded-full px-3 py-1 text-base font-bold tabular-nums ${
-                  countdown.expired || urgent
-                    ? 'bg-[var(--danger)]/15 text-[var(--danger)]'
-                    : 'bg-amber-500/20 text-amber-700'
-                }`}
-              >
-                {countdown.label}
-              </span>
+          {showCountdown && (
+            <div
+              className={`border-b px-5 py-3 transition-colors duration-300 ${
+                countdown.expired
+                  ? 'border-[var(--danger)]/35 bg-red-50'
+                  : urgent
+                    ? 'border-[var(--danger)]/40 bg-red-50'
+                    : 'border-[var(--status-pending-border)]/35 bg-[var(--status-pending-bg)]'
+              }`}
+              role="timer"
+              aria-live={urgent ? 'assertive' : 'off'}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <span
+                    className={`inline-flex items-center gap-1.5 text-xs font-semibold ${
+                      countdown.expired || urgent
+                        ? 'text-[var(--danger)]'
+                        : 'text-[var(--status-pending-fg)]'
+                    }`}
+                  >
+                    {countdown.expired || urgent ? (
+                      <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    ) : (
+                      <Clock className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    )}
+                    <span>
+                      {countdown.expired
+                        ? 'Tempo esgotado'
+                        : urgent
+                          ? 'Últimos 2 minutos — conclua agora'
+                          : 'Sua mesa está reservada por'}
+                    </span>
+                  </span>
+                  {urgent && !countdown.expired && (
+                    <p className="mt-0.5 text-[11px] font-medium text-[var(--danger)]">
+                      Ao zerar, a mesa volta automaticamente para o mapa.
+                    </p>
+                  )}
+                </div>
+                <span
+                  className={`font-mono-num shrink-0 rounded-full px-3 py-1 text-base font-bold tabular-nums ${
+                    countdown.expired || urgent
+                      ? 'bg-[var(--danger)] text-white'
+                      : 'border border-[var(--status-pending-border)]/40 bg-[var(--bg-surface)] text-[var(--status-pending-fg)]'
+                  }`}
+                >
+                  {countdown.label}
+                </span>
+              </div>
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-black/10">
+                <div
+                  className={`h-full rounded-full transition-[width] duration-1000 ease-linear motion-reduce:transition-none ${
+                    urgent || countdown.expired
+                      ? 'bg-[var(--danger)]'
+                      : 'bg-[var(--status-pending-border)]'
+                  }`}
+                  style={{ width: `${countdown.fraction * 100}%` }}
+                />
+              </div>
             </div>
-            <div className="mt-2 h-1 overflow-hidden rounded-full bg-[var(--bg-hover)]">
-              <div
-                className={`h-full rounded-full transition-[width] duration-1000 ease-linear ${
-                  urgent || countdown.expired ? 'bg-[var(--danger)]' : 'bg-amber-500'
-                }`}
-                style={{ width: `${countdown.fraction * 100}%` }}
-              />
-            </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Body */}
         <div className="flex-1 space-y-5 overflow-y-auto px-5 py-5">
-          {/* Order summary */}
-          <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)]/60 p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0 space-y-1 text-xs text-[var(--text-secondary)]">
-                <p className="text-sm font-bold text-[var(--text-primary)]">
-                  Mesa {context.tableLabel}
-                  {context.sectorName && (
-                    <span className="font-normal text-[var(--text-secondary)]"> · {context.sectorName}</span>
-                  )}
+          {/* Transparent Order & Fee Summary */}
+          <section
+            aria-label="Resumo do pedido"
+            className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)]/70 p-4"
+          >
+            <div className="space-y-1 text-xs text-[var(--text-secondary)]">
+              <p className="text-sm font-bold text-[var(--text-primary)]">
+                Mesa {context.tableLabel}
+                {context.sectorName && (
+                  <span className="font-normal text-[var(--text-secondary)]"> · {context.sectorName}</span>
+                )}
+              </p>
+              {context.startsAt && (
+                <p className="inline-flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5 text-[var(--text-muted)]" aria-hidden="true" />
+                  {formatEventDateLine(context.startsAt)}
                 </p>
-                {context.startsAt && (
-                  <p className="inline-flex items-center gap-1.5">
-                    <Calendar className="h-3.5 w-3.5 text-[var(--text-muted)]" />
-                    {formatEventDateLine(context.startsAt)}
-                  </p>
-                )}
-                {context.venue && (
-                  <p className="flex items-center gap-1.5">
-                    <MapPin className="h-3.5 w-3.5 shrink-0 text-[var(--text-muted)]" />
-                    <span className="truncate">
-                      {context.venue}
-                      {context.city ? ` · ${context.city}` : ''}
-                    </span>
-                  </p>
-                )}
+              )}
+              {context.venue && (
                 <p className="flex items-center gap-1.5">
-                  <Users className="h-3.5 w-3.5 text-[var(--text-muted)]" />
-                  {reservation.guestCount} {reservation.guestCount === 1 ? 'pessoa' : 'pessoas'} · capacidade{' '}
-                  {reservation.capacity}
+                  <MapPin className="h-3.5 w-3.5 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
+                  <span className="truncate">
+                    {context.venue}
+                    {context.city ? ` · ${context.city}` : ''}
+                  </span>
                 </p>
-              </div>
-              <div className="text-right">
-                <p className="text-[10px] font-semibold tracking-wider text-[var(--text-muted)] uppercase">Total</p>
-                <p className="font-mono-num text-xl font-bold text-[var(--text-primary)]">
-                  {format(reservation.amountMinor)}
-                </p>
-              </div>
+              )}
+              <p className="flex items-center gap-1.5">
+                <Users className="h-3.5 w-3.5 text-[var(--text-muted)]" aria-hidden="true" />
+                {reservation.guestCount} {reservation.guestCount === 1 ? 'pessoa' : 'pessoas'} · capacidade{' '}
+                {reservation.capacity}
+              </p>
             </div>
+
+            <dl className="mt-3.5 space-y-1.5 border-t border-[var(--border-subtle)] pt-3 text-xs">
+              <div className="flex items-center justify-between gap-3 text-[var(--text-secondary)]">
+                <dt>Subtotal da mesa (Mesa {context.tableLabel})</dt>
+                <dd className="font-mono-num font-medium text-[var(--text-primary)]">
+                  {format(reservation.amountMinor)}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-3 text-[var(--text-secondary)]">
+                <dt>Taxa de conveniência</dt>
+                <dd className="font-mono-num font-semibold text-[var(--status-available-fg)]">
+                  R$ 0,00 (inclusa)
+                </dd>
+              </div>
+              <div className="flex items-baseline justify-between gap-3 border-t border-[var(--border-subtle)] pt-2">
+                <dt className="text-xs font-bold tracking-wide text-[var(--text-primary)] uppercase">
+                  Total a pagar
+                </dt>
+                <dd className="font-mono-num text-xl font-bold text-[var(--text-primary)]">
+                  {format(reservation.amountMinor)}
+                </dd>
+              </div>
+            </dl>
           </section>
 
           {error && (
             <div
               role="alert"
-              className="flex items-start gap-2.5 rounded-2xl border border-[var(--danger)]/35 bg-[var(--danger)]/10 px-4 py-3 text-xs leading-relaxed text-[var(--danger)]"
+              className="flex items-start gap-2.5 rounded-2xl border border-[var(--danger)]/40 bg-red-50 px-4 py-3 text-xs leading-relaxed text-[var(--danger)]"
             >
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
               <div className="flex-1">
-                <p>{error}</p>
+                <p className="font-medium">{error}</p>
                 {!countdown.expired && phase === 'form' && (
                   <p className="mt-1 font-semibold">
-                    Você ainda tem {countdown.label} para tentar novamente.
+                    Você ainda tem{' '}
+                    <span className="font-mono-num">{countdown.label}</span> para tentar novamente.
                   </p>
                 )}
               </div>
@@ -725,56 +773,95 @@ export function CheckoutDrawer({
           {notice && (
             <div
               role="status"
-              className="flex items-start gap-2.5 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-3 text-xs text-[var(--text-secondary)]"
+              className="flex items-start gap-2.5 rounded-2xl border border-[var(--border-strong)] bg-[var(--bg-elevated)] px-4 py-3 text-xs font-medium text-[var(--text-primary)]"
             >
-              <RefreshCw className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <RefreshCw className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--text-secondary)]" aria-hidden="true" />
               <span>{notice}</span>
             </div>
           )}
 
+          {/* ---------------- CONCURRENCY CONFLICT ---------------- */}
+          {phase === 'conflict' && (
+            <section className="animate-pop-in rounded-3xl border border-[var(--status-pending-border)]/50 bg-[var(--status-pending-bg)]/60 p-6 text-center">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-[var(--status-pending-border)]/40 bg-[var(--bg-surface)] text-[var(--status-pending-fg)]">
+                <AlertTriangle className="h-7 w-7" aria-hidden="true" />
+              </div>
+              <h3 className="font-display mt-4 text-lg font-bold text-[var(--text-primary)]">
+                Mesa indisponível no momento
+              </h3>
+              <p className="mx-auto mt-1.5 max-w-xs text-xs leading-relaxed text-[var(--text-secondary)]">
+                A mesa <strong>{context.tableLabel}</strong> foi ocupada por outra pessoa antes da confirmação do
+                pagamento. Nenhuma cobrança foi realizada no Pix ou cartão.
+              </p>
+              <div className="mt-5 flex flex-col gap-2.5">
+                <button
+                  type="button"
+                  onClick={backToEvent}
+                  className="inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-[var(--cta-bg)] px-5 py-3 text-sm font-semibold text-[var(--cta-text)] transition-colors hover:bg-[var(--cta-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--text-primary)]"
+                >
+                  <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+                  Voltar ao evento e escolher outra mesa
+                </button>
+              </div>
+            </section>
+          )}
+
           {/* ---------------- EXPIRED ---------------- */}
           {phase === 'expired' && (
-            <section className="animate-pop-in rounded-3xl border border-[var(--danger)]/35 bg-[var(--danger)]/8 p-6 text-center">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--danger)]/15 text-[var(--danger)]">
-                <AlertTriangle className="h-7 w-7" />
+            <section className="animate-pop-in rounded-3xl border border-[var(--danger)]/40 bg-red-50 p-6 text-center">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-[var(--danger)]/30 bg-[var(--bg-surface)] text-[var(--danger)]">
+                <AlertTriangle className="h-7 w-7" aria-hidden="true" />
               </div>
               <h3 className="font-display mt-4 text-lg font-bold text-[var(--text-primary)]">
                 Reserva expirada
               </h3>
-              <p className="mx-auto mt-1.5 max-w-xs text-xs leading-relaxed text-[var(--text-secondary)]">
-                O prazo de 10 minutos para pagamento terminou e a mesa {context.tableLabel} foi liberada.
-                Nenhuma cobrança foi confirmada. Volte ao evento para escolher uma mesa novamente.
+              <p className="mx-auto mt-2 max-w-xs text-xs leading-relaxed text-[var(--text-secondary)]">
+                O prazo de 10 minutos para concluir o pagamento terminou e a mesa{' '}
+                <strong className="text-[var(--text-primary)]">{context.tableLabel}</strong> foi liberada no mapa.
               </p>
-              <button
-                type="button"
-                onClick={backToEvent}
-                className="mt-5 inline-flex cursor-pointer items-center gap-2 rounded-full bg-[var(--cta-bg)] px-5 py-2.5 text-xs font-semibold text-[var(--cta-text)] hover:bg-[var(--cta-hover)]"
-              >
-                <ArrowLeft className="h-3.5 w-3.5" />
-                Voltar ao evento
-              </button>
+              <p className="mx-auto mt-2 max-w-xs rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-2 text-[11px] leading-relaxed text-[var(--text-secondary)]">
+                Nenhuma cobrança foi confirmada no Pix ou Cartão (Mercado Pago). Caso algum pagamento seja aprovado
+                após o prazo, o valor é estornado automaticamente pelo mesmo meio.
+              </p>
+              <div className="mt-5 flex flex-col gap-2.5">
+                <button
+                  type="button"
+                  onClick={backToEvent}
+                  className="inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-[var(--cta-bg)] px-5 py-3 text-sm font-semibold text-[var(--cta-text)] transition-colors hover:bg-[var(--cta-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--text-primary)]"
+                >
+                  <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+                  Voltar ao evento
+                </button>
+                <Link
+                  to="/minhas-reservas"
+                  onClick={onClose}
+                  className="inline-flex min-h-11 w-full items-center justify-center rounded-full border border-[var(--border-strong)] bg-[var(--bg-surface)] px-5 py-2.5 text-xs font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-elevated)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--text-primary)]"
+                >
+                  Ver Minhas Reservas
+                </Link>
+              </div>
             </section>
           )}
 
           {/* ---------------- REFUND REQUIRED ---------------- */}
           {phase === 'refund' && (
-            <section className="animate-pop-in rounded-3xl border border-amber-500/35 bg-amber-500/10 p-6 text-center">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500/20 text-amber-700">
-                <AlertTriangle className="h-7 w-7" />
+            <section className="animate-pop-in rounded-3xl border border-[var(--status-pending-border)]/50 bg-[var(--status-pending-bg)] p-6 text-center">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-[var(--status-pending-border)]/35 bg-[var(--bg-surface)] text-[var(--status-pending-fg)]">
+                <AlertTriangle className="h-7 w-7" aria-hidden="true" />
               </div>
               <h3 className="font-display mt-4 text-lg font-bold text-[var(--text-primary)]">
                 Pagamento recebido após o prazo
               </h3>
-              <p className="mx-auto mt-1.5 max-w-xs text-xs leading-relaxed text-[var(--text-secondary)]">
+              <p className="mx-auto mt-1.5 max-w-xs text-xs leading-relaxed text-[var(--status-pending-fg)]">
                 Identificamos seu pagamento, mas ele foi aprovado depois que a reserva expirou. O valor será
                 estornado pela nossa equipe pelo mesmo meio de pagamento.
               </p>
               <button
                 type="button"
                 onClick={backToEvent}
-                className="mt-5 inline-flex cursor-pointer items-center gap-2 rounded-full bg-[var(--cta-bg)] px-5 py-2.5 text-xs font-semibold text-[var(--cta-text)]"
+                className="mt-5 inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-[var(--cta-bg)] px-5 py-3 text-sm font-semibold text-[var(--cta-text)] hover:bg-[var(--cta-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--text-primary)]"
               >
-                <ArrowLeft className="h-3.5 w-3.5" />
+                <ArrowLeft className="h-4 w-4" aria-hidden="true" />
                 Voltar ao evento
               </button>
             </section>
@@ -782,9 +869,9 @@ export function CheckoutDrawer({
 
           {/* ---------------- SUCCESS ---------------- */}
           {phase === 'success' && (
-            <section className="animate-pop-in rounded-3xl border border-emerald-500/35 bg-emerald-500/10 p-6 text-center">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-[var(--success)] ring-8 ring-emerald-50">
-                <Check className="h-8 w-8" strokeWidth={3} />
+            <section className="animate-pop-in rounded-3xl border border-[var(--status-available-border)]/45 bg-[var(--status-available-bg)] p-6 text-center">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[var(--bg-surface)] text-[var(--status-available-fg)] ring-8 ring-[var(--status-available-border)]/15">
+                <Check className="h-8 w-8" strokeWidth={3} aria-hidden="true" />
               </div>
               <h3 className="font-display mt-5 text-xl font-bold text-[var(--text-primary)]">
                 Pagamento confirmado!
@@ -797,15 +884,15 @@ export function CheckoutDrawer({
                 <button
                   type="button"
                   onClick={() => onViewTicket(reservationId)}
-                  className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full bg-[var(--cta-bg)] px-5 py-3 text-sm font-semibold text-[var(--cta-text)] hover:bg-[var(--cta-hover)]"
+                  className="inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-full bg-[var(--cta-bg)] px-5 py-3 text-sm font-semibold text-[var(--cta-text)] hover:bg-[var(--cta-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--text-primary)]"
                 >
-                  <Ticket className="h-4 w-4" />
+                  <Ticket className="h-4 w-4" aria-hidden="true" />
                   Ver ingresso / QR Code
                 </button>
                 <button
                   type="button"
                   onClick={onClose}
-                  className="cursor-pointer rounded-full border border-[var(--border-strong)] px-5 py-2.5 text-xs font-semibold text-[var(--text-primary)] hover:bg-[var(--bg-elevated)]"
+                  className="min-h-11 cursor-pointer rounded-full border border-[var(--border-strong)] bg-[var(--bg-surface)] px-5 py-2.5 text-xs font-semibold text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--text-primary)]"
                 >
                   Fechar
                 </button>
@@ -855,18 +942,22 @@ export function CheckoutDrawer({
                       readOnly
                       value={pix.copyPasteCode}
                       onFocus={(e) => e.currentTarget.select()}
-                      className="font-mono-num min-w-0 flex-1 truncate rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-3 py-2.5 text-xs text-[var(--text-primary)]"
+                      className="font-mono-num min-h-11 min-w-0 flex-1 truncate rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-3 py-2.5 text-base text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--text-primary)] sm:text-xs"
                     />
                     <button
                       type="button"
                       onClick={() => void handleCopyPix()}
-                      className={`inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-xl px-3.5 text-xs font-semibold transition-colors ${
+                      className={`inline-flex min-h-11 shrink-0 cursor-pointer items-center gap-1.5 rounded-xl px-4 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--text-primary)] ${
                         copied
-                          ? 'bg-emerald-100 text-emerald-800'
+                          ? 'border border-[var(--status-available-border)]/45 bg-[var(--status-available-bg)] text-[var(--status-available-fg)]'
                           : 'bg-[var(--cta-bg)] text-[var(--cta-text)] hover:bg-[var(--cta-hover)]'
                       }`}
                     >
-                      {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                      {copied ? (
+                        <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+                      )}
                       {copied ? 'Copiado' : 'Copiar'}
                     </button>
                   </div>
@@ -878,10 +969,10 @@ export function CheckoutDrawer({
                   Este Pix é de demonstração. Simule a confirmação abaixo para emitir o ingresso.
                 </p>
               ) : (
-                <div className="flex items-start gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/8 px-4 py-3 text-xs leading-relaxed text-[var(--text-secondary)]">
-                  <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-emerald-500" />
+                <div className="flex items-start gap-3 rounded-2xl border border-[var(--status-available-border)]/40 bg-[var(--status-available-bg)] px-4 py-3 text-xs leading-relaxed text-[var(--status-available-fg)]">
+                  <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-[var(--status-available-border)]" aria-hidden="true" />
                   <span>
-                    <strong className="text-[var(--text-primary)]">Confirmação automática:</strong> assim que o banco
+                    <strong className="font-bold">Confirmação automática:</strong> assim que o banco
                     aprovar o Pix, esta tela será atualizada sozinha — não é preciso enviar comprovante. Pague antes do
                     cronômetro zerar.
                   </span>
@@ -892,9 +983,9 @@ export function CheckoutDrawer({
                 type="button"
                 onClick={() => void (canSimulate ? simulatePayment() : checkStatus(true))}
                 disabled={checking || countdown.expired}
-                className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-full border border-[var(--border-strong)] bg-[var(--bg-elevated)] px-5 py-2.5 text-xs font-semibold text-[var(--text-primary)] hover:bg-[var(--bg-hover)] disabled:opacity-60"
+                className="inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-full border border-[var(--border-strong)] bg-[var(--bg-elevated)] px-5 py-2.5 text-xs font-semibold text-[var(--text-primary)] hover:bg-[var(--bg-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--text-primary)] disabled:opacity-60"
               >
-                <RefreshCw className={`h-3.5 w-3.5 ${checking ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`h-3.5 w-3.5 ${checking ? 'animate-spin' : ''}`} aria-hidden="true" />
                 {canSimulate ? 'Simular pagamento' : 'Já paguei, verificar status'}
               </button>
               {lastCheckedAt && (
@@ -926,7 +1017,7 @@ export function CheckoutDrawer({
                 type="button"
                 onClick={() => void (canSimulate ? simulatePayment() : checkStatus(true))}
                 disabled={checking || countdown.expired}
-                className="mt-4 inline-flex cursor-pointer items-center gap-2 rounded-full border border-[var(--border-strong)] px-4 py-2 text-xs font-semibold text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] disabled:opacity-60"
+                className="mt-4 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full border border-[var(--border-strong)] px-4 py-2 text-xs font-semibold text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--text-primary)] disabled:opacity-60"
               >
                 <RefreshCw className={`h-3.5 w-3.5 ${checking ? 'animate-spin' : ''}`} />
                 {canSimulate ? 'Simular pagamento' : 'Verificar status'}
@@ -975,17 +1066,17 @@ export function CheckoutDrawer({
                         setMethod(opt.id);
                         setError(null);
                       }}
-                      className={`flex cursor-pointer flex-col items-center gap-0.5 rounded-xl px-3 py-2.5 text-xs font-semibold transition-all ${
+                      className={`flex min-h-12 min-w-0 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-xl px-1.5 py-2 text-center text-xs leading-tight font-semibold transition-all focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--text-primary)] sm:px-2.5 ${
                         active
                           ? 'bg-[var(--bg-surface)] text-[var(--text-primary)] shadow-sm ring-1 ring-[var(--accent-border)]'
                           : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                       }`}
                     >
                       <span className="inline-flex items-center gap-1.5">
-                        <Icon className={`h-4 w-4 ${active ? 'text-[var(--accent)]' : ''}`} />
+                        <Icon className={`h-4 w-4 shrink-0 ${active ? 'text-[var(--accent)]' : ''}`} aria-hidden="true" />
                         {opt.label}
                       </span>
-                      <span className="text-[10px] font-normal text-[var(--text-muted)]">{opt.hint}</span>
+                      <span className="text-[10px] font-medium text-[var(--text-secondary)]">{opt.hint}</span>
                     </button>
                   );
                 })}
@@ -995,11 +1086,11 @@ export function CheckoutDrawer({
                 <form onSubmit={handlePixSubmit} className="space-y-4" noValidate>
                   <ul className="space-y-2 text-xs text-[var(--text-secondary)]">
                     <li className="flex items-start gap-2">
-                      <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                      <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--status-available-border)]" aria-hidden="true" />
                       Geramos um QR Code e um código copia e cola para você pagar no app do banco.
                     </li>
                     <li className="flex items-start gap-2">
-                      <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                      <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--status-available-border)]" aria-hidden="true" />
                       A confirmação é automática e o ingresso é liberado em seguida.
                     </li>
                   </ul>
@@ -1010,7 +1101,7 @@ export function CheckoutDrawer({
                     >
                       CPF ou CNPJ do pagador
                       {!REQUIRES_PAYER_IDENTIFICATION && (
-                        <span className="font-normal text-[var(--text-muted)]"> (opcional)</span>
+                        <span className="font-normal text-[var(--text-secondary)]"> (opcional)</span>
                       )}
                     </label>
                     <input
@@ -1025,14 +1116,14 @@ export function CheckoutDrawer({
                       }}
                       className={fieldClass(Boolean(pixDocError))}
                     />
-                    {pixDocError && <p className="mt-1 text-[11px] text-[var(--danger)]">{pixDocError}</p>}
+                    {pixDocError && <p className="mt-1 text-xs font-medium text-[var(--danger)]">{pixDocError}</p>}
                   </div>
                   <button
                     type="submit"
                     disabled={submitBlocked}
-                    className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-[var(--cta-bg)] px-5 py-3 text-sm font-semibold text-[var(--cta-text)] hover:bg-[var(--cta-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-[var(--cta-bg)] px-5 py-3 text-sm font-semibold text-[var(--cta-text)] hover:bg-[var(--cta-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    <QrCode className="h-4 w-4" />
+                    <QrCode className="h-4 w-4" aria-hidden="true" />
                     Gerar QR Code Pix · {format(reservation.amountMinor)}
                   </button>
                 </form>
@@ -1158,14 +1249,14 @@ export function CheckoutDrawer({
                   <button
                     type="submit"
                     disabled={submitBlocked}
-                    className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-[var(--cta-bg)] px-5 py-3 text-sm font-semibold text-[var(--cta-text)] hover:bg-[var(--cta-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-[var(--cta-bg)] px-5 py-3 text-sm font-semibold text-[var(--cta-text)] hover:bg-[var(--cta-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    <Lock className="h-4 w-4" />
+                    <Lock className="h-4 w-4" aria-hidden="true" />
                     Pagar {format(reservation.amountMinor)}
                   </button>
 
-                  <p className="flex items-start gap-2 text-[11px] leading-relaxed text-[var(--text-muted)]">
-                    <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                  <p className="flex items-start gap-2 text-xs leading-relaxed text-[var(--text-secondary)]">
+                    <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[var(--status-available-border)]" aria-hidden="true" />
                     {IS_SIMULATED_GATEWAY
                       ? 'Ambiente de testes: os dados do cartão são convertidos em um token simulado no navegador e nunca são enviados ao servidor.'
                       : 'Os dados do cartão são tokenizados diretamente pelo Mercado Pago e nunca passam pelos nossos servidores.'}
@@ -1178,8 +1269,8 @@ export function CheckoutDrawer({
 
         {/* Footer */}
         {(phase === 'form' || phase === 'awaiting') && (
-          <footer className="flex items-center justify-center gap-1.5 border-t border-[var(--border-subtle)] px-5 py-3 text-[11px] text-[var(--text-muted)]">
-            <Lock className="h-3 w-3" />
+          <footer className="flex shrink-0 items-center justify-center gap-1.5 border-t border-[var(--border-subtle)] bg-[var(--bg-surface)] px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-xs font-medium text-[var(--text-secondary)]">
+            <Lock className="h-3.5 w-3.5" aria-hidden="true" />
             Pagamento protegido · valor calculado pelo servidor
           </footer>
         )}

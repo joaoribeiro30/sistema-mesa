@@ -199,6 +199,18 @@ export function getFriendlyErrorMessage(error: unknown): string {
         ? `Limite de tentativas atingido. Tente novamente em ${error.retryAfterSeconds}s.`
         : 'Muitas tentativas recentes. Aguarde um momento antes de tentar novamente.';
     }
+    if (error.code === 'TABLE_UNAVAILABLE') {
+      return 'Esta mesa acabou de ser reservada ou vendida por outra pessoa. Escolha outra mesa disponível.';
+    }
+    if (error.code === 'RESERVATION_INACTIVE') {
+      return 'O prazo de 10 minutos para pagamento desta reserva terminou e a mesa foi liberada.';
+    }
+    if (error.code === 'PAYMENT_IN_PROGRESS') {
+      return 'Já existe uma cobrança pendente para esta reserva. Conclua o pagamento iniciado ou aguarde a atualização.';
+    }
+    if (error.code === 'IDEMPOTENCY_KEY_CONFLICT') {
+      return 'Esta tentativa conflitou com uma anterior. Tente novamente para gerar uma nova solicitação.';
+    }
     if (error.code === 'NETWORK_ERROR') {
       return error.message;
     }

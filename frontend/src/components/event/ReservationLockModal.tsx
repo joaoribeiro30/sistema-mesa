@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import {
+  AlertTriangle,
   ArrowRight,
   CheckCircle2,
   Clock,
@@ -74,6 +75,7 @@ export function ReservationLockModal({
       !isPaid(entry.reservation.id) &&
       !computeCountdown(entry.reservation.expiresAt, nowMs).expired,
   );
+  const allExpired = pending.length === 0 && hasAnyExpired;
 
   const currency = items[0].reservation.currency;
   const totalMinor = items.reduce((sum, entry) => sum + entry.reservation.amountMinor, 0);
@@ -84,6 +86,10 @@ export function ReservationLockModal({
       .sort()[0] ?? null;
 
   const countdown = computeCountdown(earliestExpiry, nowMs);
+  const urgent =
+    !countdown.expired &&
+    countdown.remainingMs > 0 &&
+    countdown.remainingMs <= 2 * 60 * 1000;
   const nextToPay = [...pending].sort((a, b) =>
     (a.reservation.expiresAt ?? '').localeCompare(b.reservation.expiresAt ?? ''),
   )[0];
@@ -93,59 +99,114 @@ export function ReservationLockModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="reservation-lock-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--modal-backdrop)] p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-[var(--modal-backdrop)] p-3 backdrop-blur-sm sm:items-center sm:p-4"
     >
-      <div className="relative w-full max-w-lg overflow-hidden rounded-3xl border border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-[var(--shadow-elevated)]">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-4 border-b border-[var(--border-subtle)] px-6 py-5">
-          <div className="flex items-start gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-emerald-500/35 bg-emerald-500/12 text-emerald-500">
-              <CheckCircle2 className="h-5 w-5" />
-            </div>
-            <div>
-              <h2
-                id="reservation-lock-title"
-                className="font-display text-xl font-bold text-[var(--text-primary)]"
+      <div className="relative flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-[var(--border-strong)] bg-[var(--bg-surface)] shadow-[var(--shadow-elevated)]">
+        {/* Sticky Header + Countdown */}
+        <div className="sticky top-0 z-10 shrink-0 bg-[var(--bg-surface)]">
+          <div className="flex items-start justify-between gap-3 border-b border-[var(--border-subtle)] px-5 py-4 sm:px-6 sm:py-5">
+            <div className="flex min-w-0 items-start gap-3">
+              <div
+                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border ${
+                  allExpired
+                    ? 'border-[var(--danger)]/35 bg-red-50 text-[var(--danger)]'
+                    : 'border-[var(--status-available-border)]/40 bg-[var(--status-available-bg)] text-[var(--status-available-fg)]'
+                }`}
               >
-                {items.length === 1
-                  ? 'Mesa bloqueada com sucesso!'
-                  : `${items.length} mesas bloqueadas com sucesso!`}
-              </h2>
-              <p className="mt-0.5 text-xs text-[var(--text-secondary)]">{eventTitle}</p>
+                {allExpired ? (
+                  <AlertTriangle className="h-5 w-5" aria-hidden="true" />
+                ) : (
+                  <CheckCircle2 className="h-5 w-5" aria-hidden="true" />
+                )}
+              </div>
+              <div className="min-w-0">
+                <h2
+                  id="reservation-lock-title"
+                  className="font-display text-lg font-bold text-[var(--text-primary)] sm:text-xl"
+                >
+                  {allExpired
+                    ? 'Tempo de reserva esgotado'
+                    : items.length === 1
+                      ? 'Mesa bloqueada com sucesso!'
+                      : `${items.length} mesas bloqueadas com sucesso!`}
+                </h2>
+                <p className="mt-0.5 truncate text-xs text-[var(--text-secondary)]">
+                  {eventTitle}
+                </p>
+              </div>
             </div>
+
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Fechar resumo da reserva"
+              className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--text-primary)]"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Fechar resumo da reserva"
-            className="cursor-pointer rounded-full p-1.5 text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          {pending.length > 0 && countdown.label && (
+            <div
+              role="timer"
+              aria-live={urgent ? 'assertive' : 'off'}
+              className={`border-b px-5 py-3 transition-colors duration-300 sm:px-6 ${
+                urgent
+                  ? 'border-[var(--danger)]/35 bg-red-50'
+                  : 'border-[var(--status-pending-border)]/35 bg-[var(--status-pending-bg)]'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <span
+                  className={`inline-flex items-center gap-2 text-xs font-semibold ${
+                    urgent ? 'text-[var(--danger)]' : 'text-[var(--status-pending-fg)]'
+                  }`}
+                >
+                  {urgent ? (
+                    <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  ) : (
+                    <Clock className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  )}
+                  {urgent
+                    ? 'Últimos 2 minutos — conclua o pagamento agora'
+                    : 'Tempo restante para concluir o pagamento'}
+                </span>
+                <span
+                  className={`font-mono-num shrink-0 rounded-full px-3 py-1 text-sm font-bold tabular-nums ${
+                    urgent
+                      ? 'bg-[var(--danger)] text-white'
+                      : 'border border-[var(--status-pending-border)]/40 bg-[var(--bg-surface)] text-[var(--status-pending-fg)]'
+                  }`}
+                >
+                  {countdown.label}
+                </span>
+              </div>
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-black/10">
+                <div
+                  className={`h-full rounded-full transition-[width] duration-1000 ease-linear motion-reduce:transition-none ${
+                    urgent ? 'bg-[var(--danger)]' : 'bg-[var(--status-pending-border)]'
+                  }`}
+                  style={{ width: `${countdown.fraction * 100}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {allExpired && (
+            <div className="border-b border-[var(--danger)]/35 bg-red-50 px-5 py-3 text-xs font-medium text-[var(--danger)] sm:px-6">
+              O bloqueio de 10 minutos terminou e as mesas voltaram ao mapa. Nenhuma cobrança foi realizada.
+            </div>
+          )}
+
+          {items.length > 1 && pending.length > 0 && (
+            <p className="border-b border-[var(--border-subtle)] bg-[var(--bg-elevated)]/50 px-5 py-2.5 text-xs text-[var(--text-secondary)] sm:px-6">
+              Cada mesa é paga separadamente. Conclua o pagamento de cada uma antes do fim do prazo.
+            </p>
+          )}
         </div>
 
-        {/* Countdown banner */}
-        {pending.length > 0 && countdown.label && (
-          <div className="flex items-center justify-between gap-3 border-b border-[var(--border-subtle)] bg-amber-500/10 px-6 py-3">
-            <span className="inline-flex items-center gap-2 text-xs font-medium text-amber-700">
-              <Clock className="h-4 w-4 shrink-0" />
-              Tempo restante para concluir o pagamento
-            </span>
-            <span className="font-mono-num rounded-full bg-amber-500/20 px-3 py-1 text-sm font-bold text-amber-700 tabular-nums">
-              {countdown.label}
-            </span>
-          </div>
-        )}
-
-        {items.length > 1 && pending.length > 0 && (
-          <p className="border-b border-[var(--border-subtle)] px-6 py-2.5 text-[11px] text-[var(--text-muted)]">
-            Cada mesa é paga separadamente. Conclua o pagamento de cada uma antes do fim do prazo.
-          </p>
-        )}
-
         {/* Locked reservations list */}
-        <div className="max-h-64 space-y-2.5 overflow-y-auto px-6 py-4">
+        <div className="flex-1 space-y-2.5 overflow-y-auto px-5 py-4 sm:px-6">
           {items.map(({ reservation, tableLabel, sectorName }) => {
             const isCancelling = cancellingId === reservation.id;
             const paid = isPaid(reservation.id);
@@ -156,25 +217,37 @@ export function ReservationLockModal({
                 key={reservation.id}
                 className={`flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 ${
                   paid
-                    ? 'border-emerald-500/35 bg-emerald-500/8'
-                    : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)]/60'
-                } ${expired ? 'opacity-60' : ''}`}
+                    ? 'border-[var(--status-available-border)]/40 bg-[var(--status-available-bg)]'
+                    : expired
+                      ? 'border-[var(--status-sold-border)]/35 bg-[var(--status-sold-surface)]'
+                      : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)]/60'
+                }`}
               >
                 <div className="min-w-0">
                   <p className="text-sm font-bold text-[var(--text-primary)]">
                     Mesa {tableLabel}{' '}
-                    <span className="font-normal text-[var(--text-secondary)]">· {sectorName}</span>
+                    <span className="font-normal text-[var(--text-secondary)]">
+                      · {sectorName}
+                    </span>
                   </p>
-                  <p className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-[var(--text-muted)]">
+                  <p className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-[var(--text-secondary)]">
                     <span className="inline-flex items-center gap-1">
-                      <Users className="h-3.5 w-3.5" />
+                      <Users className="h-3.5 w-3.5" aria-hidden="true" />
                       {reservation.guestCount} de {reservation.capacity} lugares
                     </span>
-                    <span className="font-mono-num">
+                    <span className="font-mono-num font-semibold text-[var(--text-primary)]">
                       {formatMinorCurrency(reservation.amountMinor, reservation.currency)}
                     </span>
-                    {paid && <span className="font-semibold text-emerald-500">Pago</span>}
-                    {expired && <span className="font-semibold text-[var(--danger)]">Expirada</span>}
+                    {paid && (
+                      <span className="font-semibold text-[var(--status-available-fg)]">
+                        Pago
+                      </span>
+                    )}
+                    {expired && (
+                      <span className="font-semibold text-[var(--danger)]">
+                        Expirada
+                      </span>
+                    )}
                   </p>
                 </div>
 
@@ -184,9 +257,9 @@ export function ReservationLockModal({
                       <button
                         type="button"
                         onClick={() => onViewTicket(reservation.id)}
-                        className="inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-[var(--success)] px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-emerald-800"
+                        className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full bg-[var(--success)] px-3.5 py-2 text-xs font-semibold text-white hover:bg-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--text-primary)]"
                       >
-                        <Ticket className="h-3.5 w-3.5" />
+                        <Ticket className="h-3.5 w-3.5" aria-hidden="true" />
                         Ingresso
                       </button>
                     )
@@ -195,9 +268,9 @@ export function ReservationLockModal({
                       <button
                         type="button"
                         onClick={() => onPay(reservation.id)}
-                        className="inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-[var(--cta-bg)] px-3 py-1.5 text-[11px] font-semibold text-[var(--cta-text)] hover:bg-[var(--cta-hover)]"
+                        className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full bg-[var(--cta-bg)] px-3.5 py-2 text-xs font-semibold text-[var(--cta-text)] hover:bg-[var(--cta-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--text-primary)]"
                       >
-                        <CreditCard className="h-3.5 w-3.5" />
+                        <CreditCard className="h-3.5 w-3.5" aria-hidden="true" />
                         Pagar
                       </button>
                       <button
@@ -206,12 +279,12 @@ export function ReservationLockModal({
                         onClick={() => onCancelReservation(reservation.id)}
                         title="Cancelar bloqueio desta mesa"
                         aria-label={`Cancelar bloqueio da mesa ${tableLabel}`}
-                        className="cursor-pointer rounded-full p-1.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--danger)]/10 hover:text-[var(--danger)] disabled:opacity-50"
+                        className="grid size-11 cursor-pointer place-items-center rounded-full text-[var(--text-secondary)] transition-colors hover:bg-red-50 hover:text-[var(--danger)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--text-primary)] disabled:opacity-50"
                       >
                         {isCancelling ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                         ) : (
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-4 w-4" aria-hidden="true" />
                         )}
                       </button>
                     </>
@@ -222,39 +295,59 @@ export function ReservationLockModal({
           })}
         </div>
 
-        {/* Footer */}
-        <div className="space-y-4 border-t border-[var(--border-subtle)] px-6 py-5">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-[var(--text-secondary)]">Total reservado</span>
-            <span className="font-mono-num text-xl font-bold text-[var(--text-primary)]">
-              {formatMinorCurrency(totalMinor, currency)}
-            </span>
-          </div>
+        {/* Footer with transparent fee summary */}
+        <div className="shrink-0 space-y-4 border-t border-[var(--border-subtle)] bg-[var(--bg-surface)] px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-5">
+          <dl className="space-y-1.5 text-xs">
+            <div className="flex items-center justify-between text-[var(--text-secondary)]">
+              <dt>
+                Subtotal ({items.length === 1 ? '1 mesa' : `${items.length} mesas`})
+              </dt>
+              <dd className="font-mono-num font-medium text-[var(--text-primary)]">
+                {formatMinorCurrency(totalMinor, currency)}
+              </dd>
+            </div>
+            <div className="flex items-center justify-between text-[var(--text-secondary)]">
+              <dt>Taxa de conveniência</dt>
+              <dd className="font-mono-num font-semibold text-[var(--status-available-fg)]">
+                R$ 0,00 (inclusa)
+              </dd>
+            </div>
+            <div className="flex items-baseline justify-between border-t border-[var(--border-subtle)] pt-2">
+              <dt className="text-xs font-bold tracking-wide text-[var(--text-primary)] uppercase">
+                Total reservado
+              </dt>
+              <dd className="font-mono-num text-xl font-bold text-[var(--text-primary)]">
+                {formatMinorCurrency(totalMinor, currency)}
+              </dd>
+            </div>
+          </dl>
 
           <div className="flex flex-col-reverse gap-2.5 sm:flex-row sm:justify-end">
             <Link
               to="/minhas-reservas"
-              className="inline-flex items-center justify-center gap-2 rounded-full border border-[var(--border-strong)] bg-[var(--bg-elevated)] px-5 py-2.5 text-xs font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-hover)]"
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[var(--border-strong)] bg-[var(--bg-elevated)] px-5 py-2.5 text-xs font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--text-primary)]"
             >
               Minhas Reservas
-              <ArrowRight className="h-3.5 w-3.5" />
+              <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
             </Link>
             {nextToPay ? (
               <button
                 type="button"
                 onClick={() => onPay(nextToPay.reservation.id)}
-                className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full bg-[var(--cta-bg)] px-6 py-2.5 text-xs font-semibold text-[var(--cta-text)] transition-colors hover:bg-[var(--cta-hover)]"
+                className="inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-full bg-[var(--cta-bg)] px-6 py-2.5 text-xs font-semibold text-[var(--cta-text)] transition-colors hover:bg-[var(--cta-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--text-primary)]"
               >
-                <CreditCard className="h-4 w-4" />
-                {pending.length > 1 ? `Pagar mesa ${nextToPay.tableLabel}` : 'Pagar agora'}
+                <CreditCard className="h-4 w-4" aria-hidden="true" />
+                {pending.length > 1
+                  ? `Pagar mesa ${nextToPay.tableLabel}`
+                  : 'Pagar agora'}
               </button>
             ) : (
               <button
                 type="button"
                 onClick={onClose}
-                className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full bg-[var(--cta-bg)] px-6 py-2.5 text-xs font-semibold text-[var(--cta-text)]"
+                className="inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-full bg-[var(--cta-bg)] px-6 py-2.5 text-xs font-semibold text-[var(--cta-text)] hover:bg-[var(--cta-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--text-primary)]"
               >
-                Continuar no evento
+                {allExpired ? 'Escolher outra mesa no evento' : 'Continuar no evento'}
               </button>
             )}
           </div>
