@@ -40,21 +40,11 @@ export function SectorTableList({
   return (
     <div className="space-y-3 md:space-y-5">
       {visibleSectors.map((sector) => {
-        const availableCount = sector.tables.filter((t) =>
-          isTableSelectable(t),
-        ).length;
         const filteredTables = onlyAvailable
           ? sector.tables.filter(
               (t) => isTableSelectable(t) || selectedTableIds.has(t.id),
             )
           : sector.tables;
-
-        const minTablePrice =
-          sector.tables.length > 0
-            ? Math.min(...sector.tables.map((t) => t.priceMinor))
-            : sector.basePriceMinor;
-        const displayBasePrice =
-          sector.basePriceMinor > 0 ? sector.basePriceMinor : minTablePrice;
 
         return (
           <section
@@ -62,34 +52,9 @@ export function SectorTableList({
             aria-label={`Setor ${sector.name}`}
             className="overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] md:rounded-3xl"
           >
-            {/* Sector header */}
-            <div className="flex items-start justify-between gap-3 border-b border-[var(--border-subtle)] bg-[var(--bg-elevated)]/50 px-3 py-2.5 md:items-center md:px-6 md:py-4">
-              <div className="min-w-0 space-y-1">
-                <div className="flex flex-wrap items-center gap-1.5 md:gap-2.5">
-                  <h3 className="font-display text-base font-bold text-[var(--text-primary)] [overflow-wrap:anywhere] md:text-lg">
-                    {sector.name}
-                  </h3>
-                  <span className="rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2.5 py-0.5 text-[11px] font-medium text-[var(--text-secondary)]">
-                    {availableCount} de {sector.tables.length}{' '}
-                    {sector.tables.length === 1 ? 'mesa livre' : 'mesas livres'}
-                  </span>
-                </div>
-                {sector.description && (
-                  <p className="text-xs leading-relaxed text-[var(--text-secondary)]">
-                    {sector.description}
-                  </p>
-                )}
-              </div>
-
-              <div className="shrink-0 text-right">
-                <p className="text-[10px] font-semibold tracking-wider text-[var(--text-muted)] uppercase">
-                  Preço base
-                </p>
-                <p className="font-mono-num text-xs font-bold text-[var(--text-primary)] md:text-base">
-                  {formatMinorCurrency(displayBasePrice, currency)}
-                </p>
-              </div>
-            </div>
+            <h3 className="font-display border-b border-[var(--border-subtle)] px-3 py-2.5 text-base font-bold text-[var(--text-primary)] [overflow-wrap:anywhere] md:px-5 md:py-3 md:text-lg">
+              {sector.name}
+            </h3>
 
             {/* Tables grid inside sector */}
             {filteredTables.length === 0 ? (

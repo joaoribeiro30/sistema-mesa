@@ -15,6 +15,7 @@ import {
   RefreshCw,
   Share2,
   ShieldCheck,
+  SlidersHorizontal,
   Users,
   X,
 } from 'lucide-react';
@@ -46,11 +47,7 @@ import {
   getFriendlyErrorMessage,
   reservationsApi,
 } from '@/lib/api';
-import {
-  formatEventDateLine,
-  formatMinorCurrency,
-  resolveApiAssetUrl,
-} from '@/lib/format';
+import { formatEventDateLine } from '@/lib/format';
 import type {
   EventDetail,
   EventSector,
@@ -84,12 +81,12 @@ export function EventDetailPage() {
 
   const [event, setEvent] = useState<EventDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [viewMode, setViewMode] = useState<ActiveViewMode>('MAP');
   const [activeSectorId, setActiveSectorId] = useState<string | null>(null);
   const [onlyAvailable, setOnlyAvailable] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   // tableId -> guestCount
   const [selectedMap, setSelectedMap] = useState<Record<string, number>>({});
@@ -124,18 +121,18 @@ export function EventDetailPage() {
   const loadEvent = useCallback(
     async (silent = false) => {
       if (!slug) return;
-      if (silent) {
-        setRefreshing(true);
-      } else {
+      if (!silent) {
         setLoading(true);
+        setError(null);
       }
-      setError(null);
       try {
         const { event: detail } = await eventsApi.getBySlug(slug);
         setEvent(detail);
         if (!silent) {
           setViewMode(chooseInitialViewMode(detail));
           setActiveSectorId(null);
+          setOnlyAvailable(false);
+          setFiltersOpen(false);
           setSelectedMap({});
           idempotencyKeysRef.current = {};
         }
@@ -147,8 +144,7 @@ export function EventDetailPage() {
           setLiveNotice(getFriendlyErrorMessage(err));
         }
       } finally {
-        setLoading(false);
-        setRefreshing(false);
+        if (!silent) setLoading(false);
       }
     },
     [slug],
@@ -310,28 +306,6 @@ export function EventDetailPage() {
     [selectedItems],
   );
 
-  // Inventory summary for the selection header
-  const stats = useMemo(() => {
-    if (!event) {
-      return { total: 0, available: 0, minPriceMinor: null as number | null };
-    }
-    let total = 0;
-    let available = 0;
-    let minPrice: number | null = null;
-
-    for (const sector of event.sectors) {
-      for (const table of sector.tables) {
-        total += 1;
-        if (isTableSelectable(table)) available += 1;
-
-        if (minPrice === null || table.priceMinor < minPrice) {
-          minPrice = table.priceMinor;
-        }
-      }
-    }
-    return { total, available, minPriceMinor: minPrice };
-  }, [event]);
-
   const handleToggleTable = useCallback((table: EventTable, _sector: EventSector) => {
     if (!isTableSelectable(table)) return;
     setReservationError(null);
@@ -492,9 +466,8 @@ export function EventDetailPage() {
   if (loading) {
     return (
       <div className="mx-auto max-w-7xl space-y-4 px-4 pt-4 pb-16 sm:px-6 md:space-y-7 md:pt-6 lg:px-8">
-        <div className="skeleton h-36 rounded-2xl md:h-44 md:rounded-3xl" />
-        <div className="skeleton h-8 w-48 rounded-xl" />
-        <div className="skeleton h-20 rounded-2xl md:h-16" />
+        <div className="skeleton h-28 rounded-2xl md:rounded-3xl" />
+        <div className="skeleton h-12 w-full rounded-xl md:w-96" />
         <div className="skeleton h-64 rounded-2xl md:h-[460px] md:rounded-3xl" />
       </div>
     );
@@ -533,7 +506,7 @@ export function EventDetailPage() {
     );
   }
 
-  const cover = resolveApiAssetUrl(event.bannerImageUrl || event.coverImageUrl);
+  const hasActiveFilters = activeSectorId !== null || onlyAvailable;
   const effectiveViewMode: ActiveViewMode =
     event.displayMode === 'MAP'
       ? 'MAP'
@@ -547,191 +520,146 @@ export function EventDetailPage() {
         selectedItems.length > 0 ? 'pb-36 sm:pb-32' : 'pb-16'
       }`}
     >
-      <header className="overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] md:flex md:rounded-3xl">
-        <div className="min-w-0 flex-1 px-4 py-3 md:p-7">
-          <div className="flex items-center justify-between gap-2">
-            <Link
-              to="/"
-              className="inline-flex min-h-10 items-center gap-1.5 rounded-xl pr-2 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
-            >
-              <ArrowLeft className="h-3.5 w-3.5 shrink-0" />
-              Voltar aos eventos
-            </Link>
-
-            <div className="flex shrink-0 items-center gap-1 md:gap-2">
-              <button
-                type="button"
-                onClick={() => void loadEvent(true)}
-                disabled={refreshing}
-                aria-label="Atualizar evento"
-                title="Recarregar preços, imagens e posições"
-                className="inline-flex min-h-10 min-w-10 cursor-pointer items-center justify-center gap-1.5 rounded-full border border-[var(--border-subtle)] text-xs font-medium text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] disabled:opacity-60 md:px-3"
-              >
-                <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-                <span className="hidden md:inline">Atualizar</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleShareLink}
-                aria-label={copiedLink ? 'Link copiado' : 'Compartilhar'}
-                title={copiedLink ? 'Link copiado' : 'Compartilhar'}
-                className="inline-flex min-h-10 min-w-10 cursor-pointer items-center justify-center gap-1.5 rounded-full border border-[var(--border-subtle)] text-xs font-medium text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] md:px-3"
-              >
-                {copiedLink ? (
-                  <Check className="h-4 w-4 text-[var(--success)]" />
-                ) : (
-                  <Share2 className="h-4 w-4" />
-                )}
-                <span className="hidden md:inline">{copiedLink ? 'Link copiado' : 'Compartilhar'}</span>
-              </button>
-            </div>
-          </div>
-
-          <h1 className="font-display mt-2 text-2xl leading-tight font-bold tracking-tight [overflow-wrap:anywhere] md:mt-3 md:text-4xl">
+      <header className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 md:rounded-3xl md:px-6 md:py-5">
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="font-display min-w-0 text-2xl leading-tight font-bold tracking-tight [overflow-wrap:anywhere] md:text-4xl">
             {event.title}
           </h1>
-          <div className="mt-2 flex flex-col gap-1.5 text-xs text-[var(--text-secondary)] md:mt-3 md:flex-row md:flex-wrap md:gap-x-5 md:text-sm">
-            <span className="inline-flex items-start gap-1.5">
-              <Calendar className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--accent)] md:h-4 md:w-4" />
-              <span>{formatEventDateLine(event.startsAt, event.endsAt)}</span>
-            </span>
-            <span className="inline-flex items-start gap-1.5">
-              <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--accent)] md:h-4 md:w-4" />
-              <span className="[overflow-wrap:anywhere]">
-                {event.venue}{event.city ? ` · ${event.city}` : ''}
-              </span>
-            </span>
-          </div>
-          {event.category && (
-            <span className="mt-3 hidden rounded-full bg-[var(--accent-soft)] px-3 py-1 text-[11px] font-semibold text-[var(--accent)] md:inline-flex">
-              {event.category}
-            </span>
-          )}
+          <button
+            type="button"
+            onClick={handleShareLink}
+            aria-label={copiedLink ? 'Link copiado' : 'Compartilhar'}
+            title={copiedLink ? 'Link copiado' : 'Compartilhar'}
+            className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]"
+          >
+            {copiedLink
+              ? <Check className="h-4 w-4 text-[var(--success)]" />
+              : <Share2 className="h-4 w-4" />}
+          </button>
         </div>
 
-        {cover && (
-          <div
-            aria-hidden="true"
-            className="hidden w-1/3 shrink-0 border-l border-[var(--border-subtle)] bg-[var(--bg-elevated)] bg-cover bg-center md:block"
-            style={{ backgroundImage: `url(${JSON.stringify(cover)})` }}
-          />
-        )}
+        <div className="mt-1 flex flex-col gap-1.5 text-xs text-[var(--text-secondary)] md:mt-2 md:flex-row md:flex-wrap md:gap-x-5 md:text-sm">
+          <span className="inline-flex items-start gap-1.5">
+            <Calendar className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--accent)] md:h-4 md:w-4" />
+            <span>{formatEventDateLine(event.startsAt, event.endsAt)}</span>
+          </span>
+          <span className="inline-flex items-start gap-1.5">
+            <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--accent)] md:h-4 md:w-4" />
+            <span className="[overflow-wrap:anywhere]">
+              {event.venue}{event.city ? ` · ${event.city}` : ''}
+            </span>
+          </span>
+        </div>
       </header>
 
       <section aria-label="Seleção de mesas" className="space-y-2.5 md:space-y-4">
-        <div className="flex flex-col gap-2.5 md:flex-row md:items-end md:justify-between">
-          <div>
-            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 md:justify-start">
-              <h2 className="font-display text-xl leading-tight font-bold tracking-tight md:text-3xl">
-                Escolha onde ficar
-              </h2>
-              {streamStatus === 'closed' ? (
-                <button
-                  type="button"
-                  onClick={reconnectStream}
-                  className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-full border border-[var(--danger)]/35 bg-[var(--danger)]/10 px-2.5 text-[11px] font-semibold text-[var(--danger)] hover:bg-[var(--danger)]/20"
-                >
-                  <Radio className="h-3 w-3 shrink-0" />
-                  Reconectar
-                </button>
-              ) : (
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <h2 className="font-display text-xl leading-tight font-bold tracking-tight md:text-3xl">
+              Escolha onde ficar
+            </h2>
+            {streamStatus === 'closed' ? (
+              <button
+                type="button"
+                onClick={reconnectStream}
+                className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-full border border-[var(--danger)]/35 bg-[var(--danger)]/10 px-2.5 text-[11px] font-semibold text-[var(--danger)] hover:bg-[var(--danger)]/20"
+              >
+                <Radio className="h-3 w-3 shrink-0" />
+                Reconectar
+              </button>
+            ) : (
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                  streamStatus === 'live' ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-800'
+                }`}
+              >
                 <span
-                  className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-                    streamStatus === 'live' ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-800'
-                  }`}
-                >
-                  <span
-                    aria-hidden="true"
-                    className={`h-1.5 w-1.5 rounded-full ${streamStatus === 'live' ? 'bg-emerald-600' : 'bg-amber-600'}`}
-                  />
-                  {streamStatus === 'live' ? 'Ao vivo' : streamStatus === 'reconnecting' ? 'Reconectando…' : 'Conectando…'}
-                </span>
-              )}
-            </div>
-            <p className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-xs text-[var(--text-secondary)]">
-              <span>{stats.available} de {stats.total} {stats.total === 1 ? 'mesa livre' : 'mesas livres'}</span>
-              {stats.minPriceMinor !== null && (
-                <span className="font-medium">· A partir de {formatMinorCurrency(stats.minPriceMinor, event.currency)}</span>
-              )}
-            </p>
+                  aria-hidden="true"
+                  className={`h-1.5 w-1.5 rounded-full ${streamStatus === 'live' ? 'bg-emerald-600' : 'bg-amber-600'}`}
+                />
+                {streamStatus === 'live' ? 'Ao vivo' : streamStatus === 'reconnecting' ? 'Reconectando…' : 'Conectando…'}
+              </span>
+            )}
           </div>
 
-          {/* Mode Switcher (shown when displayMode === BOTH) */}
-          {event.displayMode === 'BOTH' ? (
-            <div
-              role="tablist"
-              aria-label="Modo de visualização das mesas"
-              className="grid grid-cols-2 gap-1 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-1 md:flex"
+          <div className="flex flex-wrap items-center gap-2">
+            {event.displayMode === 'BOTH' && (
+              <div
+                role="tablist"
+                aria-label="Modo de visualização das mesas"
+                className="grid grow basis-56 grid-cols-2 gap-1 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-1 md:flex md:flex-none"
+              >
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={effectiveViewMode === 'MAP'}
+                  onClick={() => setViewMode('MAP')}
+                  className={`inline-flex min-h-11 cursor-pointer items-center justify-center gap-1.5 rounded-full px-1.5 text-xs font-semibold transition-colors md:px-3 ${
+                    effectiveViewMode === 'MAP'
+                      ? 'bg-[var(--cta-bg)] text-[var(--cta-text)]'
+                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                  }`}
+                >
+                  <MapIcon className="h-3.5 w-3.5 shrink-0" />
+                  Mapa Interativo
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={effectiveViewMode === 'LIST'}
+                  onClick={() => setViewMode('LIST')}
+                  className={`inline-flex min-h-11 cursor-pointer items-center justify-center gap-1.5 rounded-full px-1.5 text-xs font-semibold transition-colors md:px-3 ${
+                    effectiveViewMode === 'LIST'
+                      ? 'bg-[var(--cta-bg)] text-[var(--cta-text)]'
+                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                  }`}
+                >
+                  <LayoutGrid className="h-3.5 w-3.5 shrink-0" />
+                  Lista por Setores
+                </button>
+              </div>
+            )}
+
+            <button
+              type="button"
+              aria-label={hasActiveFilters ? 'Filtrar, filtros ativos' : 'Filtrar'}
+              aria-expanded={filtersOpen}
+              aria-controls="table-selection-filters"
+              onClick={() => setFiltersOpen((open) => !open)}
+              className={`ml-auto inline-flex min-h-11 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border px-3 text-xs font-semibold transition-colors ${
+                hasActiveFilters
+                  ? 'border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent)]'
+                  : 'border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]'
+              }`}
             >
-              <button
-                type="button"
-                role="tab"
-                aria-selected={effectiveViewMode === 'MAP'}
-                onClick={() => setViewMode('MAP')}
-                className={`inline-flex min-h-11 cursor-pointer items-center justify-center gap-1.5 rounded-full px-2 text-xs font-semibold transition-colors md:px-4 ${
-                  effectiveViewMode === 'MAP'
-                    ? 'bg-[var(--cta-bg)] text-[var(--cta-text)] shadow-sm'
-                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                }`}
-              >
-                <MapIcon className="h-3.5 w-3.5 shrink-0" />
-                Mapa Interativo
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={effectiveViewMode === 'LIST'}
-                onClick={() => setViewMode('LIST')}
-                className={`inline-flex min-h-11 cursor-pointer items-center justify-center gap-1.5 rounded-full px-2 text-xs font-semibold transition-colors md:px-4 ${
-                  effectiveViewMode === 'LIST'
-                    ? 'bg-[var(--cta-bg)] text-[var(--cta-text)] shadow-sm'
-                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                }`}
-              >
-                <LayoutGrid className="h-3.5 w-3.5 shrink-0" />
-                Lista por Setores
-              </button>
-            </div>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 self-start rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3.5 py-2 text-xs font-medium text-[var(--text-secondary)] md:self-auto">
-              {event.displayMode === 'MAP' ? (
-                <>
-                  <MapIcon className="h-3.5 w-3.5 text-[var(--accent)]" />
-                  Visualização por Mapa Interativo
-                </>
-              ) : (
-                <>
-                  <LayoutGrid className="h-3.5 w-3.5 text-[var(--accent)]" />
-                  Visualização em Lista por Setores
-                </>
-              )}
-            </span>
-          )}
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+              Filtrar
+              {hasActiveFilters && <span aria-hidden="true" className="size-1.5 rounded-full bg-current" />}
+            </button>
+          </div>
         </div>
 
-        {/* Sector Filter Pills + Status Legend */}
-        <div className="flex flex-col gap-2 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2.5 py-2 md:gap-3 md:px-4 md:py-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex min-w-0 items-center gap-2">
-            <div
-              role="group"
-              aria-label="Filtrar por setor"
-              className="no-scrollbar flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto p-0.5"
-            >
+        <div
+          id="table-selection-filters"
+          hidden={!filtersOpen}
+          className="space-y-2.5 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-2.5 md:px-4 md:py-3"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div role="group" aria-label="Filtrar por setor" className="flex min-w-0 flex-wrap items-center gap-1.5">
               <button
                 type="button"
-                aria-label={`Todos os setores (${stats.available})`}
+                aria-label="Todos os setores"
                 aria-pressed={activeSectorId === null}
                 onClick={() => setActiveSectorId(null)}
-                className={`min-h-9 shrink-0 cursor-pointer rounded-full border px-2.5 text-[11px] font-semibold transition-colors md:px-3.5 md:text-xs ${
+                className={`min-h-9 cursor-pointer rounded-full border px-3 text-xs font-medium transition-colors ${
                   activeSectorId === null
                     ? 'border-transparent bg-[var(--cta-bg)] text-[var(--cta-text)]'
                     : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                 }`}
               >
-                Todos<span className="hidden md:inline"> os setores</span> ({stats.available})
+                Todos
               </button>
               {event.sectors.map((sector) => {
-                const sectorAvail = sector.tables.filter(isTableSelectable).length;
                 const selected = activeSectorId === sector.id;
                 return (
                   <button
@@ -739,19 +667,19 @@ export function EventDetailPage() {
                     type="button"
                     aria-pressed={selected}
                     onClick={() => setActiveSectorId(selected ? null : sector.id)}
-                    className={`min-h-9 shrink-0 cursor-pointer rounded-full border px-2.5 text-[11px] font-medium transition-colors md:px-3.5 md:text-xs ${
+                    className={`min-h-9 max-w-full cursor-pointer truncate rounded-full border px-3 text-xs font-medium transition-colors ${
                       selected
                         ? 'border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent)]'
                         : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                     }`}
                   >
-                    {sector.name} ({sectorAvail})
+                    {sector.name}
                   </button>
                 );
               })}
             </div>
 
-            <label className="inline-flex min-h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-2.5 text-[11px] font-medium text-[var(--text-primary)] select-none">
+            <label className="inline-flex min-h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-3 text-xs font-medium text-[var(--text-primary)] select-none">
               <input
                 type="checkbox"
                 checked={onlyAvailable}
@@ -764,7 +692,7 @@ export function EventDetailPage() {
 
           <ul
             aria-label="Legenda de status das mesas"
-            className="flex shrink-0 flex-wrap items-center gap-x-2.5 gap-y-1 border-t border-[var(--border-subtle)] px-0.5 pt-2 text-[11px] font-medium text-[var(--text-secondary)] md:gap-x-3.5 lg:border-t-0 lg:pt-0"
+            className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-[var(--border-subtle)] pt-2.5 text-[11px] font-medium text-[var(--text-secondary)]"
           >
             {LEGEND_STATES.map((state) => {
               const meta = TABLE_STATUS_META[state];
